@@ -65,7 +65,7 @@ globalThis.fetch = async (input) => {
 
 /* --- Load the client with a probe appended ------------------------------- */
 let source = fs.readFileSync(path.join(root, 'client.js'), 'utf8').replace(/\r\n/g, '\n')
-const probe = '\n    globalThis.__MEA_PROBE__ = { OverviewTab, CharactersTab, GraphTab, TimelineTab, PlacesTab, LoreTab, PlotTab, PathsTab, DiffTab, AskTab, Drawer, AtlasPage, buildAvatarTab }\n'
+const probe = '\n    globalThis.__MEA_PROBE__ = { OverviewTab, CharactersTab, GraphTab, TimelineTab, PlacesTab, LoreTab, PlotTab, PathsTab, DiffTab, AskTab, Drawer, AtlasPage, buildAvatarTab, ThemesTab, AnalysisTab }\n'
 const anchor = '\n    return {\n      inject: [\'slots\'],'
 if (!source.includes(anchor)) {
   console.error('probe anchor not found — client.js structure changed')
@@ -119,7 +119,7 @@ function render(node, trail) {
   errors.push(trail + ' :: unknown element type ' + String(node.type))
 }
 
-const tabs = ['OverviewTab', 'CharactersTab', 'GraphTab', 'TimelineTab', 'PlacesTab', 'LoreTab', 'PlotTab', 'PathsTab', 'DiffTab', 'AskTab']
+const tabs = ['OverviewTab', 'CharactersTab', 'GraphTab', 'TimelineTab', 'PlacesTab', 'LoreTab', 'PlotTab', 'PathsTab', 'DiffTab', 'AskTab', 'ThemesTab', 'AnalysisTab']
 for (const name of tabs) {
   const Comp = T[name]
   if (!Comp) { errors.push('missing component: ' + name); continue }

@@ -13,6 +13,7 @@ import {
   PLACES, PLACE_BY_ID, ARTIFACTS, ARTIFACT_BY_ID, GLOSSARY, QUOTES, PLOT, JOURNEYS,
 } from './lore.js'
 import { AVATARS, AVATAR_BY_ID, TONE_LABELS } from './journey.js'
+import { normalizeTier, maskRecord, maskList, TIER_LABELS, RECORD_TIER, MAX_TIER } from './spoiler.js'
 
 const norm = (s) => String(s == null ? '' : s).trim().toLowerCase()
 
@@ -59,6 +60,7 @@ const INDEX = entityIndex()
 
 /** Search characters by name, alias, faction, tag or summary. */
 export function searchCharacters(query = '', options = {}) {
+  const maxTier = normalizeTier(options.maxTier)
   const q = norm(query)
   let list = CHARACTERS
   if (options.faction) list = list.filter((c) => c.faction === options.faction)
@@ -70,7 +72,7 @@ export function searchCharacters(query = '', options = {}) {
       return norm(haystack).includes(q)
     })
   }
-  return list.map(toCard)
+  return maskList('character', list.map(toCard), maxTier)
 }
 
 function toCard(c) {
@@ -88,14 +90,21 @@ function toCard(c) {
  * Universal search across characters, places, artifacts, glossary and works.
  * Returns grouped results so the UI can show one list with kind badges.
  */
-export function searchAll(query = '') {
+export function searchAll(query = '', options = {}) {
+  const maxTier = normalizeTier(options.maxTier)
   const q = norm(query)
   if (!q) return { groups: [], total: 0 }
   const hits = INDEX.filter((r) => r.hay.includes(q))
   const byKind = {}
   for (const hit of hits) {
-    const payload = describe(kindOf(hit.kind), hit.id)
-    if (!payload) continue
+    const described = describe(kindOf(hit.kind), hit.id)
+    if (!described) continue
+    // Map the internal kind name onto the gating vocabulary.
+    const gateKind = hit.kind === 'character' ? 'character'
+      : hit.kind === 'place' ? 'place'
+        : hit.kind === 'artifact' ? 'artifact'
+          : hit.kind === 'glossary' ? 'glossary' : null
+    const payload = gateKind ? maskRecord(gateKind, described, maxTier) : described
     byKind[hit.kind] = byKind[hit.kind] || []
     byKind[hit.kind].push(payload)
   }
@@ -207,7 +216,8 @@ export function buildGraph(options = {}) {
 }
 
 /** Neighbours of one character, grouped by relation type. */
-export function neighbors(idOrName) {
+export function neighbors(idOrName, options = {}) {
+  const maxTier = normalizeTier(options.maxTier)
   const c = resolveCharacter(idOrName)
   if (!c) return null
   const groups = {}
@@ -221,7 +231,7 @@ export function neighbors(idOrName) {
       color: RELATION_TYPES[rel.type] ? RELATION_TYPES[rel.type].color : '#888',
     })
   }
-  return { character: toCard(c), groups }
+  return { character: maskRecord('character', toCard(c), maxTier), groups }
 }
 
 /* ------------------------------------------------------------------ *
@@ -240,7 +250,8 @@ function resolveCharacter(idOrName) {
 }
 
 /** One character's complete dossier, including places, artifacts and quotes. */
-export function characterDetail(idOrName) {
+export function characterDetail(idOrName, options = {}) {
+  const maxTier = normalizeTier(options.maxTier)
   const c = resolveCharacter(idOrName)
   if (!c) return null
   const relations = (c.relations || []).map((rel) => {
@@ -267,42 +278,49 @@ export function characterDetail(idOrName) {
     .map((a) => ({ id: a.id, name: a.name, type: a.type, summary: a.summary }))
   const quotes = QUOTES.filter((q) => q.speaker === c.id)
     .map((q) => ({ id: q.id, text: q.text, textEn: q.textEn, context: q.context, work: q.work }))
-  return { ...toCard(c), details: c.details, relations, works, appearances, places, artifacts, quotes }
+  const detail = { ...toCard(c), details: c.details, relations, works, appearances, places, artifacts, quotes }
+  return maskRecord('character', detail, maxTier)
 }
 
-export function placeDetail(idOrName) {
+export function placeDetail(idOrName, options = {}) {
+  const maxTier = normalizeTier(options.maxTier)
   const key = norm(idOrName)
   const p = PLACE_BY_ID[key] || PLACES.find((x) => norm(x.name) === key || norm(x.nameEn) === key)
     || PLACES.find((x) => norm(x.name).includes(key) || norm(x.nameEn).includes(key))
   if (!p) return null
-  return {
+  const detail = {
     ...p,
     characters: (p.characters || []).map((id) => CHARACTER_BY_ID[id] && toCard(CHARACTER_BY_ID[id])).filter(Boolean),
     workTitles: (p.works || []).map((id) => WORK_BY_ID[id] && WORK_BY_ID[id].title).filter(Boolean),
   }
+  return maskRecord('place', detail, maxTier)
 }
 
-export function artifactDetail(idOrName) {
+export function artifactDetail(idOrName, options = {}) {
+  const maxTier = normalizeTier(options.maxTier)
   const key = norm(idOrName)
   const a = ARTIFACT_BY_ID[key] || ARTIFACTS.find((x) => norm(x.name) === key || norm(x.nameEn) === key)
     || ARTIFACTS.find((x) => norm(x.name).includes(key) || norm(x.nameEn).includes(key))
   if (!a) return null
-  return {
+  const detail = {
     ...a,
     owners: (a.owners || []).map((id) => CHARACTER_BY_ID[id] && toCard(CHARACTER_BY_ID[id])).filter(Boolean),
     workTitles: (a.works || []).map((id) => WORK_BY_ID[id] && WORK_BY_ID[id].title).filter(Boolean),
   }
+  return maskRecord('artifact', detail, maxTier)
 }
 
-export function glossaryDetail(idOrName) {
+export function glossaryDetail(idOrName, options = {}) {
+  const maxTier = normalizeTier(options.maxTier)
   const key = norm(idOrName)
   const g = GLOSSARY.find((x) => x.id === key || norm(x.term) === key || norm(x.termEn) === key
     || norm(x.term).includes(key) || norm(x.termEn).includes(key))
   if (!g) return null
-  return {
+  const detail = {
     ...g,
     related: (g.related || []).map((id) => CHARACTER_BY_ID[id] && toCard(CHARACTER_BY_ID[id])).filter(Boolean),
   }
+  return maskRecord('glossary', detail, maxTier)
 }
 
 /* ------------------------------------------------------------------ *
@@ -367,11 +385,12 @@ export function timeline(options = {}) {
     events = c ? events.filter((e) => (e.characters || []).includes(c.id)) : []
   }
   if (options.age) events = events.filter((e) => e.age === options.age)
-  const enriched = events.map((e) => ({
+  const maxTier = normalizeTier(options.maxTier)
+  const enriched = events.map((e) => maskRecord('event', {
     ...e,
     characterNames: (e.characters || []).map((id) => CHARACTER_BY_ID[id] && CHARACTER_BY_ID[id].name).filter(Boolean),
     workTitles: (e.works || []).map((id) => WORK_BY_ID[id] && WORK_BY_ID[id].title).filter(Boolean),
-  }))
+  }, maxTier))
   return {
     events: enriched,
     ages: [...new Set(EVENTS.map((e) => e.age))],
@@ -576,13 +595,21 @@ export function judgeJourney(idOrName, choices = []) {
  * Aggregate views
  * ------------------------------------------------------------------ */
 
-/** Everything the browser page needs on first load. */
-export function bundle() {
+/**
+ * Everything the browser page needs on first load.
+ *
+ * Takes a spoiler ceiling, and applies it on the server: the client must never
+ * receive content it is supposed to hide. Hiding in the browser would leave the
+ * full text one DevTools request away.
+ */
+export function bundle(options = {}) {
+  const maxTier = normalizeTier(options.maxTier)
   return {
     works: WORKS,
     factions: FACTIONS,
-    characters: CHARACTERS.map(toCard),
-    events: EVENTS,
+    characters: maskList('character', CHARACTERS.map(toCard), maxTier),
+    events: maskList('event', EVENTS.map((e) => ({ ...e })), maxTier),
+    maxTier,
     paths: PATHS,
     differences: DIFFERENCES,
     relationTypes: RELATION_TYPES,
@@ -679,7 +706,8 @@ function matchEntities(question, limit = 5) {
  * Deliberately deterministic and transparent: it says what it matched and
  * points to the panel rather than inventing prose it cannot support.
  */
-export function ask(question) {
+export function ask(question, options = {}) {
+  const maxTier = normalizeTier(options.maxTier)
   const raw = String(question == null ? '' : question).trim()
   if (!raw) return '问点什么吧：角色关系、地名、宝物、时间线或改编差异都可以。'
   const q = norm(raw)
@@ -704,16 +732,18 @@ export function ask(question) {
     const hits = matchEntities(raw, 4)
     const best = hits.find((h) => h.row.kind === 'character')
     if (best) {
-      const d = characterDetail(best.row.id)
+      const d = characterDetail(best.row.id, { maxTier })
       out.push('**' + d.name + (d.nameEn ? '（' + d.nameEn + '）' : '') + ' · ' + d.factionLabel + ' · ' + d.kind + '**')
       out.push('来源：' + d.canon)
       out.push('')
       out.push(d.summary)
       if (d.details) out.push(d.details)
       if (d.fate) out.push('结局：' + d.fate)
-      if (d.relations.length) {
+      // A gated dossier may have had `relations` removed; absence means empty.
+      const rels = Array.isArray(d.relations) ? d.relations : []
+      if (rels.length) {
         out.push('')
-        out.push('**主要关系：** ' + d.relations.map((r) => r.label + '=' + r.name).join('；'))
+        out.push('**主要关系：** ' + rels.map((r) => r.label + '=' + r.name).join('；'))
       }
       return out.join('\n')
     }
@@ -758,7 +788,7 @@ export function ask(question) {
   if (bare.length && bare[0].score >= 900) {
     const top = bare[0].row
     if (top.kind === 'artifact') {
-      const a = artifactDetail(top.id)
+      const a = artifactDetail(top.id, { maxTier })
       out.push('**' + a.name + '（' + a.nameEn + '）· ' + a.type + ' · ' + a.canon + '**')
       out.push(a.summary)
       out.push(a.desc)
@@ -766,7 +796,7 @@ export function ask(question) {
       return out.join('\n')
     }
     if (top.kind === 'place') {
-      const p = placeDetail(top.id)
+      const p = placeDetail(top.id, { maxTier })
       out.push('**' + p.name + '（' + p.nameEn + '）· ' + p.region + ' · ' + p.type + '**')
       out.push(p.summary)
       out.push(p.desc)
@@ -774,7 +804,7 @@ export function ask(question) {
       return out.join('\n')
     }
     if (top.kind === 'glossary') {
-      const g = glossaryDetail(top.id)
+      const g = glossaryDetail(top.id, { maxTier })
       out.push('**' + g.term + '（' + g.termEn + '）· ' + g.category + '**')
       out.push(g.definition)
       out.push(g.detail)
@@ -788,16 +818,18 @@ export function ask(question) {
       return out.join('\n')
     }
     if (top.kind === 'character') {
-      const d = characterDetail(top.id)
+      const d = characterDetail(top.id, { maxTier })
       out.push('**' + d.name + (d.nameEn ? '（' + d.nameEn + '）' : '') + ' · ' + d.factionLabel + ' · ' + d.kind + '**')
       out.push('来源：' + d.canon)
       out.push('')
       out.push(d.summary)
       if (d.details) out.push(d.details)
       if (d.fate) out.push('结局：' + d.fate)
-      if (d.relations.length) {
+      // A gated dossier may have had `relations` removed; absence means empty.
+      const rels = Array.isArray(d.relations) ? d.relations : []
+      if (rels.length) {
         out.push('')
-        out.push('**主要关系：** ' + d.relations.map((r) => r.label + '=' + r.name).join('；'))
+        out.push('**主要关系：** ' + rels.map((r) => r.label + '=' + r.name).join('；'))
       }
       return out.join('\n')
     }

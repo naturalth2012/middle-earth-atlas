@@ -30,6 +30,8 @@ window.__ModuleLoader__.load({
     const AVATARS_PATH = BASE + '/avatars'
     const AVATAR_PATH = BASE + '/avatar'
     const AVATAR_JUDGE_PATH = BASE + '/avatar-judge'
+    const THEMES_PATH = BASE + '/themes'
+    const ANALYSIS_PATH = BASE + '/analysis'
     /* --- avatar-tab:begin (generated from avatar-tab.js — do not edit here) --- */
     const buildAvatarTab = ({ h, React, t, paths, storage }) => {
   const { AVATARS_PATH, AVATAR_PATH, AVATAR_JUDGE_PATH } = paths
@@ -336,6 +338,42 @@ window.__ModuleLoader__.load({
     }
     /* --- avatar-tab:end --- */
 /* ------------------------------------------------------------------ *
+     * Spoiler range.
+     *
+     * This is the client half of the gating in spoiler.js. The server does the
+     * real work; this only remembers the user's choice and makes every request
+     * carry it. Every data fetch below MUST pass `&maxTier=`, otherwise the
+     * browser receives content it is supposed to hide and the setting becomes
+     * decoration.
+     * ------------------------------------------------------------------ */
+    const SPOILER_KEY = 'mea:spoiler:v1'
+    const SPOILER_LEVELS = [1, 2, 3]
+
+    function readSpoilerTier() {
+      try {
+        const raw = window.localStorage.getItem(SPOILER_KEY)
+        const n = Number(raw)
+        return SPOILER_LEVELS.includes(n) ? n : 3
+      } catch {
+        return 3
+      }
+    }
+
+    function writeSpoilerTier(tier) {
+      try {
+        window.localStorage.setItem(SPOILER_KEY, String(tier))
+      } catch {
+        /* remembering the choice is a convenience, not a requirement */
+      }
+    }
+
+    /** Append the current range to a data URL. */
+    function withTier(url, tier) {
+      const sep = url.includes('?') ? '&' : '?'
+      return url + sep + 'maxTier=' + tier
+    }
+
+/* ------------------------------------------------------------------ *
      * Storage adapter for avatar journeys.
      *
      * Kept outside the generated avatar-tab block so re-inlining cannot remove
@@ -479,6 +517,8 @@ window.__ModuleLoader__.load({
       tabDiff: '原著 vs 改编',
       tabAsk: '随手问',
       tabAvatar: '化身之旅',
+      tabThemes: '主题辩证',
+      tabAnalysis: '网络分析',
       // avatar journey
       avatarTitle: '化身之旅 · 走进故事里',
       avatarIntro: '选一个角色，回到他或她真正面对抉择的那一刻。你会看到自己会怎么选，也会看到托尔金实际写了什么——这正是原著最难被替代的部分。',
@@ -504,6 +544,24 @@ window.__ModuleLoader__.load({
       avatarScore: '与原著的一致程度',
       avatarChoices: '这一幕的选项',
       atmoOpen: '细看这一幕',
+      spoilerLabel: '剧透范围',
+      spoiler1: '读完《霍比特人》',
+      spoiler2: '读完《魔戒》',
+      spoiler3: '全部',
+      spoilerLocked: '含结局，已按当前剧透范围隐藏',
+      spoilerHint: '按你的阅读进度隐藏结局内容；选择会记住。',
+      themeHint: '有些问题托尔金没有给出答案。这里把三种立场都摆出来，结论留给你。',
+      themeSides: '三种答案',
+      themeDiscuss: '留给读者的问题',
+      analysisHint: '205 条关系目前只是"看得见"。这里把它们变成可以回答的问题。',
+      analysisDegree: '连接最多',
+      analysisBetween: '最关键的桥',
+      analysisPaths: '距离',
+      analysisBridges: '跨阵营的桥',
+      analysisAvg: '平均 {n} 跳',
+      analysisDiameter: '直径 {n} 跳',
+      analysisDensity: '网络密度 {n}',
+      loading: '正在展开中土地图…',
       atmoSight: '看见',
       atmoSound: '听见',
       atmoTouch: '触到',
@@ -604,6 +662,8 @@ window.__ModuleLoader__.load({
       tabPlot: 'Plot & journeys', tabPaths: 'Start here', tabDiff: 'Book vs screen',
       tabAsk: 'Ask',
       tabAvatar: 'Play as',
+      tabThemes: 'Themes',
+      tabAnalysis: 'Network',
       avatarTitle: 'Play as a character',
       avatarIntro: 'Pick a character and return to the moment they actually faced a choice. You will see what you would do — and what Tolkien actually wrote. That gap is the point.',
       avatarSpoiler: 'Spoiler range',
@@ -628,6 +688,23 @@ window.__ModuleLoader__.load({
       avatarScore: 'How closely you followed the book',
       avatarChoices: 'Choices for this scene',
       atmoOpen: 'Look closer',
+      spoilerLabel: 'Spoiler range',
+      spoiler1: 'Finished The Hobbit',
+      spoiler2: 'Finished LOTR',
+      spoiler3: 'Everything',
+      spoilerLocked: 'Contains endings, hidden at your current range',
+      spoilerHint: 'Hides endings based on how far you have read. Your choice is remembered.',
+      themeHint: 'Some questions Tolkien never answers. Three positions, and the conclusion is yours.',
+      themeSides: 'Three answers',
+      themeDiscuss: 'For the reader',
+      analysisHint: '205 relations were only visible. Here they become questions you can answer.',
+      analysisDegree: 'Most connected',
+      analysisBetween: 'Key bridges',
+      analysisPaths: 'Distance',
+      analysisBridges: 'Faction bridges',
+      analysisAvg: 'Average {n} hops',
+      analysisDiameter: 'Diameter {n}',
+      analysisDensity: 'Density {n}',
       atmoSight: 'Sight',
       atmoSound: 'Sound',
       atmoTouch: 'Touch',
@@ -841,6 +918,26 @@ window.__ModuleLoader__.load({
         .mea-av-badge{width:32px;height:32px;flex:0 0 32px;border-radius:9px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--dsw-alias-brand-primary)}
         .mea-av-tagline{font-size:13px;color:var(--dsw-alias-label-secondary);font-style:italic;line-height:1.6}
         .mea-av-voice{font-size:12px;color:var(--dsw-alias-brand-primary);opacity:.85;line-height:1.5}
+
+        /* Spoiler range selector: sits in the header so it is always reachable,
+           and every fetch reads from the same state. */
+        .mea-spoiler-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}
+
+        .mea-theme{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);border-radius:12px;padding:17px 19px;margin-bottom:15px}
+        .mea-theme h3{margin:0 0 5px;font-size:17px}
+        .mea-theme-q{font-size:14px;color:var(--dsw-alias-brand-primary);margin-bottom:10px;font-style:italic}
+        .mea-theme-h{margin:15px 0 8px;font-size:12.5px;color:var(--dsw-alias-label-secondary);font-weight:600}
+        .mea-theme-side{display:flex;flex-direction:column;gap:3px;padding:9px 12px;background:var(--dsw-alias-bg-base);border-left:3px solid var(--dsw-alias-border-l2);border-radius:0 8px 8px 0;margin-bottom:7px;font-size:13px}
+        .mea-theme-side b{color:var(--dsw-alias-brand-primary);font-size:12.5px}
+        .mea-theme-discuss{margin-top:13px;padding:11px 13px;background:var(--dsw-alias-bg-layer-2);border-radius:8px;font-size:12.8px;display:flex;flex-direction:column;gap:4px}
+        .mea-theme-discuss b{color:var(--dsw-alias-label-secondary);font-size:11.5px}
+        .mea-rank-row{display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid var(--dsw-alias-border-l1);font-size:13px}
+        .mea-rank-no{width:22px;flex:0 0 22px;color:var(--dsw-alias-label-secondary);font-size:11.5px}
+        .mea-rank-name{flex:0 0 130px;font-weight:600}
+        .mea-rank-val{color:var(--dsw-alias-label-secondary);font-size:12.5px}
+        .mea-spoiler-label{font-size:11.5px;color:var(--dsw-alias-label-secondary);margin-right:2px}
+        .mea-spoiler-hint{font-size:11px;color:var(--dsw-alias-label-secondary);margin-top:6px;opacity:.8}
+        .mea-locked-note{font-size:11.5px;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-layer-2);border-radius:7px;padding:6px 10px;margin:7px 0;display:inline-block}
 
         /* Atmosphere: a collapsed sensory note. The native marker is replaced
            with one that matches the theme, and the summary keeps its built-in
@@ -1113,7 +1210,7 @@ window.__ModuleLoader__.load({
     /* ------------------------------------------------------------------ *
      * Drawer — loads one dossier and shows it in a side sheet
      * ------------------------------------------------------------------ */
-    const Drawer = ({ kind, id, data, t, onClose, onOpen }) => {
+    const Drawer = ({ kind, id, data, t, spoilerTier, onClose, onOpen }) => {
       const [payload, setPayload] = React.useState(null)
       const [failed, setFailed] = React.useState(false)
 
@@ -1122,7 +1219,7 @@ window.__ModuleLoader__.load({
         setPayload(null); setFailed(false)
         const path = kind === 'place' ? PLACE_PATH : kind === 'artifact' ? ARTIFACT_PATH
           : kind === 'glossary' ? GLOSSARY_PATH : DETAIL_PATH
-        getJSON(path + '?id=' + encodeURIComponent(id))
+        getJSON(withTier(path + '?id=' + encodeURIComponent(id), spoilerTier))
           .then((d) => { if (alive) { if (d && d.error) setFailed(true); else setPayload(d) } })
           .catch(() => { if (alive) setFailed(true) })
         return () => { alive = false }
@@ -1221,7 +1318,7 @@ window.__ModuleLoader__.load({
     /* ------------------------------------------------------------------ *
      * Characters tab
      * ------------------------------------------------------------------ */
-    const CharactersTab = ({ data, t, open }) => {
+    const CharactersTab = ({ data, t, open, spoilerTier }) => {
       const [query, setQuery] = React.useState('')
       const [faction, setFaction] = React.useState('')
       const [work, setWork] = React.useState('')
@@ -1236,7 +1333,7 @@ window.__ModuleLoader__.load({
         const q = query.trim()
         if (!q) { setRemote(null); setBusy(false); return undefined }
         setBusy(true)
-        getJSON(BASE + '/search-all?q=' + encodeURIComponent(q))
+        getJSON(withTier(BASE + '/search-all?q=' + encodeURIComponent(q), spoilerTier))
           .then((r) => { if (alive) { setRemote(r); setBusy(false) } })
           .catch(() => { if (alive) { setRemote(null); setBusy(false) } })
         return () => { alive = false }
@@ -1328,7 +1425,7 @@ window.__ModuleLoader__.load({
     /* ------------------------------------------------------------------ *
      * Graph tab — force layout with drag, zoom, focus and path finding
      * ------------------------------------------------------------------ */
-    const GraphTab = ({ data, t, open }) => {
+    const GraphTab = ({ data, t, open, spoilerTier }) => {
       const [focus, setFocus] = React.useState('')
       const [graph, setGraph] = React.useState(null)
       const [faction, setFaction] = React.useState('')
@@ -1344,7 +1441,7 @@ window.__ModuleLoader__.load({
         const params = []
         if (focus) params.push('focus=' + encodeURIComponent(focus))
         if (faction) params.push('faction=' + encodeURIComponent(faction))
-        getJSON(GRAPH_PATH + (params.length ? '?' + params.join('&') : ''))
+        getJSON(withTier(GRAPH_PATH + (params.length ? '?' + params.join('&') : ''), spoilerTier))
           .then((g) => { if (alive) { setGraph(g); setView({ x: 0, y: 0, k: 1 }) } })
           .catch(() => { if (alive) setGraph(null) })
         return () => { alive = false }
@@ -1829,7 +1926,7 @@ window.__ModuleLoader__.load({
     /* ------------------------------------------------------------------ *
      * Ask tab
      * ------------------------------------------------------------------ */
-    const AskTab = ({ t }) => {
+    const AskTab = ({ t, spoilerTier }) => {
       const [q, setQ] = React.useState('')
       const [answer, setAnswer] = React.useState('')
       const [busy, setBusy] = React.useState(false)
@@ -1837,7 +1934,7 @@ window.__ModuleLoader__.load({
 
       React.useEffect(() => {
         let alive = true
-        getJSON(ASK_PATH + '?q=')
+        getJSON(withTier(ASK_PATH + '?q=', spoilerTier))
           .then((r) => { if (alive && r && r.suggestions) setChips(r.suggestions) })
           .catch(() => { /* suggestions are optional */ })
         return () => { alive = false }
@@ -1850,7 +1947,7 @@ window.__ModuleLoader__.load({
         setBusy(true)
         setAnswer('')
         try {
-          const r = await getJSON(ASK_PATH + '?q=' + encodeURIComponent(text))
+          const r = await getJSON(withTier(ASK_PATH + '?q=' + encodeURIComponent(text), spoilerTier))
           setAnswer(r.answer || t('askFail'))
         } catch {
           setAnswer(t('askFail'))
@@ -1884,15 +1981,106 @@ window.__ModuleLoader__.load({
         answer ? h('div', { className: 'mea-answer' }, answer) : null)
     }
 
+    /* ------------------------------------------------------------------ *
+     * Themes tab — three defensible positions, no verdict
+     * ------------------------------------------------------------------ */
+    const ThemesTab = ({ t, spoilerTier }) => {
+      const [themes, setThemes] = React.useState(null)
+      const [failed, setFailed] = React.useState(false)
+
+      React.useEffect(() => {
+        let alive = true
+        setThemes(null); setFailed(false)
+        getJSON(withTier(THEMES_PATH, spoilerTier))
+          .then((r) => { if (alive) setThemes(r.themes || []) })
+          .catch(() => { if (alive) setFailed(true) })
+        return () => { alive = false }
+      }, [spoilerTier])
+
+      if (failed) return h('div', { className: 'mea-empty' }, t('errorTitle'))
+      if (!themes) {
+        return h('div', { className: 'mea-loading', style: { height: 'auto', paddingTop: 40 } },
+          h('div', { className: 'mea-spin', 'aria-hidden': 'true' }, '💍'), h('div', null, t('loading')))
+      }
+      if (!themes.length) return h('div', { className: 'mea-empty' }, t('empty'))
+
+      return h(React.Fragment, null,
+        h('p', { className: 'mea-kicker' }, t('themeHint')),
+        ...themes.map((theme) => h('div', { key: theme.id, className: 'mea-theme' },
+          h('h3', null, theme.title),
+          h('div', { className: 'mea-theme-q' }, theme.question),
+          h('p', { className: 'mea-p' }, theme.summary),
+          h('h4', { className: 'mea-theme-h' }, t('themeSides')),
+          ...theme.sides.map((side) => h('div', { key: side.name, className: 'mea-theme-side' },
+            h('b', null, side.name),
+            h('span', null, side.view))),
+          h('div', { className: 'mea-theme-discuss' },
+            h('b', null, t('themeDiscuss')),
+            h('span', null, theme.discussion)))))
+    }
+
+    /* ------------------------------------------------------------------ *
+     * Analysis tab — the graph as numbers
+     * ------------------------------------------------------------------ */
+    const AnalysisTab = ({ t }) => {
+      const [data, setData] = React.useState(null)
+      const [failed, setFailed] = React.useState(false)
+
+      React.useEffect(() => {
+        let alive = true
+        getJSON(ANALYSIS_PATH)
+          .then((r) => { if (alive) setData(r) })
+          .catch(() => { if (alive) setFailed(true) })
+        return () => { alive = false }
+      }, [])
+
+      if (failed) return h('div', { className: 'mea-empty' }, t('errorTitle'))
+      if (!data) {
+        return h('div', { className: 'mea-loading', style: { height: 'auto', paddingTop: 40 } },
+          h('div', { className: 'mea-spin', 'aria-hidden': 'true' }, '💍'), h('div', null, t('loading')))
+      }
+
+      const rank = (rows, valueOf, label) => h('div', { style: { marginBottom: 18 } },
+        h('h3', { className: 'mea-h3sm' }, label),
+        ...rows.map((r, i) => h('div', { key: r.id, className: 'mea-rank-row' },
+          h('span', { className: 'mea-rank-no' }, String(i + 1)),
+          h('span', { className: 'mea-rank-name' }, r.name),
+          h('span', { className: 'mea-rank-val' }, String(valueOf(r))))))
+
+      return h(React.Fragment, null,
+        h('p', { className: 'mea-kicker' }, t('analysisHint')),
+        h('div', { className: 'mea-stats' },
+          h(Stat, { n: data.nodes, label: t('tabCharacters') }),
+          h(Stat, { n: data.relations, label: t('ovRelations') }),
+          h(Stat, { n: t('analysisAvg', { n: data.paths.averageDistance }), label: t('analysisPaths') }),
+          h(Stat, { n: t('analysisDiameter', { n: data.paths.diameter }), label: t('analysisPaths') })),
+        rank(data.degree.top, (r) => r.degree, t('analysisDegree')),
+        rank(data.betweenness.top, (r) => r.betweenness, t('analysisBetween')),
+        h('div', null,
+          h('h3', { className: 'mea-h3sm' }, t('analysisBridges')),
+          ...data.bridges.top.map((r) => h('div', { key: r.id, className: 'mea-rank-row' },
+            h('span', { className: 'mea-rank-name' }, r.name),
+            h('span', { className: 'mea-rank-val' }, r.bridgesTo.map((f) => f.name).join('、'))))))
+    }
+
     const AtlasPage = ({ t, onBack }) => {
       const [data, setData] = React.useState(null)
       const [error, setError] = React.useState(false)
       const [tab, setTab] = React.useState('overview')
       const [drawer, setDrawer] = React.useState(null)
+      // Reading progress, persisted. Drives every data request.
+      const [spoilerTier, setSpoilerTierState] = React.useState(() => readSpoilerTier())
+      const setSpoilerTier = (next) => {
+        setSpoilerTierState(next)
+        writeSpoilerTier(next)
+        // Reload from the server: gating happens there, not in the browser.
+        setData(null)
+        getJSON(withTier(BUNDLE_PATH, next)).then(setData).catch(() => setError(true))
+      }
 
       const load = () => {
         setError(false); setData(null)
-        getJSON(BUNDLE_PATH).then(setData).catch(() => setError(true))
+        getJSON(withTier(BUNDLE_PATH, spoilerTier)).then(setData).catch(() => setError(true))
       }
       React.useEffect(load, [])
 
@@ -1925,6 +2113,8 @@ window.__ModuleLoader__.load({
       const tabs = [
         ['overview', '🧭 ' + t('tabOverview')],
         ['avatar', '🎭 ' + t('tabAvatar')],
+        ['themes', '⚖️ ' + t('tabThemes')],
+        ['analysis', '📊 ' + t('tabAnalysis')],
         ['characters', '👤 ' + t('tabCharacters')],
         ['graph', '🕸️ ' + t('tabGraph')],
         ['timeline', '📜 ' + t('tabTimeline')],
@@ -1940,28 +2130,50 @@ window.__ModuleLoader__.load({
         h('div', { className: 'mea-scroll' },
           h('div', { className: 'mea-head' },
             h(Crest),
-            h('div', null,
+            h('div', { style: { flex: 1 } },
               h('h1', null, t('title')),
               h('div', { className: 'mea-sub' }, t('subtitle')),
-              h('button', { className: 'mea-chip', style: { marginTop: 8 }, onClick: onBack }, '← ' + t('back')))),
+              h('div', { className: 'mea-spoiler-row' },
+                h('span', { className: 'mea-spoiler-label' }, t('spoilerLabel')),
+                // Keys are written out literally: a computed key is invisible to
+                // the copy check, which would let a missing translation ship.
+                h('button', {
+                  className: 'mea-chip' + (spoilerTier === 1 ? ' mea-on' : ''),
+                  'aria-pressed': spoilerTier === 1 ? 'true' : 'false',
+                  onClick: () => setSpoilerTier(1),
+                }, t('spoiler1')),
+                h('button', {
+                  className: 'mea-chip' + (spoilerTier === 2 ? ' mea-on' : ''),
+                  'aria-pressed': spoilerTier === 2 ? 'true' : 'false',
+                  onClick: () => setSpoilerTier(2),
+                }, t('spoiler2')),
+                h('button', {
+                  className: 'mea-chip' + (spoilerTier === 3 ? ' mea-on' : ''),
+                  'aria-pressed': spoilerTier === 3 ? 'true' : 'false',
+                  onClick: () => setSpoilerTier(3),
+                }, t('spoiler3')),
+                h('button', { className: 'mea-chip', onClick: onBack }, '← ' + t('back'))),
+              h('div', { className: 'mea-spoiler-hint' }, t('spoilerHint')))),
           h('div', { className: 'mea-tabs' }, tabs.map(([id, label]) =>
             h('button', {
               key: id, className: 'mea-tab' + (tab === id ? ' mea-active' : ''), onClick: () => setTab(id),
             }, label))),
           tab === 'overview' && h(OverviewTab, { data, t, go: setTab, open }),
           tab === 'avatar' && h(AvatarTabView, { data, t }),
-          tab === 'characters' && h(CharactersTab, { data, t, open }),
-          tab === 'graph' && h(GraphTab, { data, t, open }),
+          tab === 'themes' && h(ThemesTab, { t, spoilerTier }),
+          tab === 'analysis' && h(AnalysisTab, { t }),
+          tab === 'characters' && h(CharactersTab, { data, t, open, spoilerTier }),
+          tab === 'graph' && h(GraphTab, { data, t, open, spoilerTier }),
           tab === 'timeline' && h(TimelineTab, { data, t }),
           tab === 'places' && h(PlacesTab, { data, t, open }),
           tab === 'lore' && h(LoreTab, { data, t, open }),
           tab === 'plot' && h(PlotTab, { data, t }),
           tab === 'paths' && h(PathsTab, { data, t }),
           tab === 'diff' && h(DiffTab, { data, t }),
-          tab === 'ask' && h(AskTab, { t }),
+          tab === 'ask' && h(AskTab, { t, spoilerTier }),
           h('div', { className: 'mea-footer' }, t('footer'))),
         drawer && h(Drawer, {
-          kind: drawer.kind, id: drawer.id, data, t,
+          kind: drawer.kind, id: drawer.id, data, t, spoilerTier,
           onClose: () => setDrawer(null),
           onOpen: (kind, id) => setDrawer({ kind, id }),
         }))

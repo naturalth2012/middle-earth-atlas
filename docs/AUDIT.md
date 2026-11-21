@@ -115,3 +115,24 @@
 | P3 client.js 体积 98.9KB | 观察中，未到 150KB 警戒线 |
 
 校验 3200 → 3214 项。
+
+---
+
+## 七、剧透缺陷已修复（2026-11-21）
+
+`docs/ANALYSIS-THREE-BODY.md` 里的实证缺陷已闭环：
+
+| 项 | 结果 |
+| --- | --- |
+| 字段级白名单门控 | 覆盖 character / place / artifact / glossary / event / quote |
+| 记录级例外 | 36 条（含校验发现的 3 条遗漏：弗罗多、山姆、比尔博） |
+| 服务端门控 | bundle / detail / place / artifact / glossary / search / timeline / neighbors 全部生效 |
+| UI 强制传参 | 6 处请求接入 withTier，校验断言 ≥5 |
+| 新增内容 | 7 组主题辩证、关系网络量化分析 |
+| 路由 / 工具 | 20 条 / 10 个 |
+
+校验 3219 → 3455 项。
+
+**校验在实施中发现的两个真实问题**：
+1. 弗罗多的 summary 含「西渡」，但未进例外表——被「结局词扫描」抓到。
+2. 剧透档位按钮用了 `t('spoiler' + level)` 拼接键，使文案校验无法发现缺失翻译。改为字面量。

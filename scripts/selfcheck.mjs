@@ -20,6 +20,9 @@ const lore = await import(new URL('../lore.js', import.meta.url).href)
 const engine = await import(new URL('../engine.js', import.meta.url).href)
 const journey = await import(new URL('../journey.js', import.meta.url).href)
 const storage = await import(new URL('../storage.js', import.meta.url).href)
+const spoiler = await import(new URL('../spoiler.js', import.meta.url).href)
+const themesMod = await import(new URL('../themes.js', import.meta.url).href)
+const analysisMod = await import(new URL('../analysis.js', import.meta.url).href)
 
 let failures = 0
 let checks = 0
@@ -635,6 +638,198 @@ group('atmosphere layer')
   check('summary keeps a visible focus ring',
     /summary:focus-visible[\s\S]{0,120}outline:/.test(clientCode))
   check('atmosphere copy is localised', clientCode.includes('atmoOpen'))
+}
+
+/* ------------------------------------------------------------------ *
+ * Spoiler gating
+ *
+ * The gate is a whitelist, not a word blacklist: below the reader's mark only
+ * explicitly allowed fields survive. These checks assert the whitelist holds
+ * for every entity and every level, and that the leak that motivated the work
+ * (a character card revealing the ending) is closed.
+ * ------------------------------------------------------------------ */
+group('spoiler gating')
+
+{
+  const DATA = engine.bundle({ maxTier: 3 })
+  const frodo = DATA.characters.find((c) => c.id === 'frodo')
+
+  // --- the defect that started this: a character card must not end the book ---
+  const t1 = engine.characterDetail('frodo', { maxTier: 1 })
+  check('tier 1 dossier hides the fate', !('fate' in t1))
+  check('tier 1 dossier hides the biography', !('details' in t1))
+  check('tier 1 dossier hides the summary', !('summary' in t1))
+  check('tier 1 dossier keeps the name', t1.name === '弗罗多·巴金斯')
+  check('tier 1 dossier is marked locked', t1.locked === true)
+  check('tier 1 dossier lists what was hidden', Array.isArray(t1.lockedFields) && t1.lockedFields.length > 0)
+
+  // --- the same leak must be closed through every route ---
+  const leaked = (text) => /坠入烈焰|西渡|战死|同归于尽|被咬断|自焚/.test(String(text || ''))
+
+  check('tier 1 detail leaks no ending',
+    !leaked(JSON.stringify(engine.characterDetail('sam', { maxTier: 1 }))))
+  check('tier 1 gollum leaks no ending',
+    !leaked(JSON.stringify(engine.characterDetail('gollum', { maxTier: 1 }))))
+  check('tier 1 boromir leaks no ending',
+    !leaked(JSON.stringify(engine.characterDetail('boromir', { maxTier: 1 }))))
+
+  // --- bundle must be gated server-side ---
+  const bundle1 = engine.bundle({ maxTier: 1 })
+  check('tier 1 bundle carries the ceiling', bundle1.maxTier === 1)
+  check('tier 1 bundle hides character fates',
+    bundle1.characters.every((c) => !('fate' in c)))
+  check('tier 1 bundle hides event titles',
+    bundle1.events.every((e) => !('title' in e)))
+  check('tier 1 bundle still names every character',
+    bundle1.characters.length === DATA.characters.length)
+
+  // --- whitelist semantics ---
+  const allowed = spoiler.allowedFields('character', 1)
+  check('tier 1 whitelist is explicit', Array.isArray(allowed) && allowed.length > 0)
+  check('tier 1 whitelist excludes fate', !allowed.includes('fate'))
+  check('tier 1 whitelist excludes details', !allowed.includes('details'))
+  check('tier 3 allows everything', spoiler.allowedFields('character', 3) === null)
+
+  // --- every entity kind honours its whitelist ---
+  const kinds = [
+    ['character', () => engine.characterDetail('aragorn', {})],
+    ['place', () => engine.placeDetail('mordor', {})],
+    ['artifact', () => engine.artifactDetail('one_ring', {})],
+    ['glossary', () => engine.glossaryDetail('maiar', {})],
+  ]
+  for (const [kind, load] of kinds) {
+    const full = load()
+    const safe = spoiler.allowedFields(kind, 1)
+    const masked = spoiler.maskRecord(kind, full, 1)
+    for (const key of Object.keys(masked)) {
+      if (key === 'locked' || key === 'lockedFields' || key === 'id') continue
+      check('tier 1 ' + kind + ' keeps only whitelisted fields: ' + key, safe.includes(key), key)
+    }
+  }
+
+  // --- record-level overrides are load-bearing, not decorative ---
+  check('override table is non-trivial', Object.keys(spoiler.RECORD_TIER).length >= 25,
+    String(Object.keys(spoiler.RECORD_TIER).length))
+  for (const id of Object.keys(spoiler.RECORD_TIER)) {
+    check('override points at a real tier: ' + id, [1, 2, 3].includes(spoiler.RECORD_TIER[id]))
+  }
+
+  // Every character whose summary states an outcome must be covered.
+  const outcomeWords = /坠入|战死|杀死|同归于尽|西渡|自焚|身亡|被杀|丧命|溺亡|牺牲/
+  const leakers = DATA.characters.filter((c) => outcomeWords.test(c.summary || ''))
+  for (const c of leakers) {
+    check('ending-bearing summary is overridden: ' + c.id,
+      typeof spoiler.RECORD_TIER[c.id] === 'number' && spoiler.RECORD_TIER[c.id] >= 2,
+      String(spoiler.RECORD_TIER[c.id]))
+  }
+
+  // --- normalizeTier semantics ---
+  check('absent ceiling means everything', spoiler.normalizeTier(null) === 3)
+  check('undefined ceiling means everything', spoiler.normalizeTier(undefined) === 3)
+  check('empty ceiling means everything', spoiler.normalizeTier('') === 3)
+  check('garbage ceiling means everything', spoiler.normalizeTier('abc') === 3)
+  check('ceiling clamps low', spoiler.normalizeTier(0) === 1)
+  check('ceiling clamps high', spoiler.normalizeTier(99) === 3)
+
+  // --- tier 3 is a faithful regression of the ungated behaviour ---
+  const t3 = engine.characterDetail('frodo', { maxTier: 3 })
+  check('tier 3 dossier is not locked', !t3.locked)
+  check('tier 3 dossier has fate', Boolean(t3.fate))
+  check('tier 3 dossier has details', Boolean(t3.details))
+  check('tier 3 dossier has relations', Array.isArray(t3.relations) && t3.relations.length > 0)
+
+  // --- the ask tool must not leak through its own prose ---
+  const ask1 = engine.ask('弗罗多是谁', { maxTier: 1 })
+  check('tier 1 ask leaks no ending', !leaked(ask1))
+  check('tier 1 ask still answers', ask1.includes('弗罗多'))
+  const ask3 = engine.ask('弗罗多是谁', { maxTier: 3 })
+  check('tier 3 ask still includes the fate', ask3.includes('结局'))
+
+  // --- the client must send the ceiling, or the gate is decoration ---
+  const clientCode = fs.readFileSync(path.join(root, 'client.js'), 'utf8').replace(/\r\n/g, '\n')
+  check('client defines a spoiler store', clientCode.includes('readSpoilerTier'))
+  check('client appends maxTier to requests', clientCode.includes('withTier('))
+  const tieredFetches = (clientCode.match(/withTier\(/g) || []).length
+  check('client gates multiple request sites', tieredFetches >= 5, String(tieredFetches))
+  check('client reloads on tier change', clientCode.includes('setSpoilerTier'))
+}
+
+/* ------------------------------------------------------------------ *
+ * Themes
+ * ------------------------------------------------------------------ */
+group('themes')
+
+{
+  const themes = themesMod.THEMES
+  check('themes exist', themes.length >= 7, String(themes.length))
+  check('theme ids unique', new Set(themes.map((x) => x.id)).size === themes.length)
+
+  for (const theme of themes) {
+    check('theme has a question: ' + theme.id, Boolean(theme.question))
+    check('theme has a summary: ' + theme.id, Boolean(theme.summary))
+    check('theme has a discussion: ' + theme.id, Boolean(theme.discussion))
+    check('theme has exactly three sides: ' + theme.id, theme.sides.length === 3, String(theme.sides.length))
+    for (const side of theme.sides) {
+      check('side has a name: ' + theme.id, Boolean(side.name))
+      check('side has a view: ' + theme.id, Boolean(side.view) && side.view.length > 20)
+    }
+    check('theme tier is valid: ' + theme.id, [1, 2, 3].includes(theme.tier))
+    for (const id of theme.related || []) {
+      check('theme related exists: ' + theme.id + ' ' + id, charIds.has(id), id)
+    }
+  }
+
+  // Side names should be distinct, otherwise it is not a dialectic.
+  for (const theme of themes) {
+    const names = theme.sides.map((x) => x.name)
+    check('sides are distinct: ' + theme.id, new Set(names).size === 3)
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Network analysis
+ * ------------------------------------------------------------------ */
+group('network analysis')
+
+{
+  const summary = analysisMod.networkSummary({ limit: 10 })
+
+  check('analysis reports nodes', summary.nodes > 40, String(summary.nodes))
+  check('analysis reports relations', summary.relations > 100, String(summary.relations))
+  check('density is a fraction', summary.density > 0 && summary.density < 1, String(summary.density))
+
+  // Degree: sorted descending, values plausible.
+  check('degree ranking is sorted',
+    summary.degree.top.every((r, i, arr) => i === 0 || arr[i - 1].degree >= r.degree))
+  check('degree values are positive', summary.degree.top.every((r) => r.degree > 0))
+  check('degree does not exceed the cast', summary.degree.top.every((r) => r.degree < summary.nodes))
+
+  // Betweenness: sorted, non-negative, and somebody must be a real bridge.
+  check('betweenness ranking is sorted',
+    summary.betweenness.top.every((r, i, arr) => i === 0 || arr[i - 1].betweenness >= r.betweenness))
+  check('betweenness values are non-negative',
+    summary.betweenness.top.every((r) => r.betweenness >= 0))
+  check('at least one character is a genuine bridge',
+    summary.betweenness.top[0] && summary.betweenness.top[0].betweenness > 0)
+
+  // Paths: a connected graph over this dataset is expected.
+  check('average distance is sane',
+    summary.paths.averageDistance > 1 && summary.paths.averageDistance < 10,
+    String(summary.paths.averageDistance))
+  check('diameter exceeds the average', summary.paths.diameter >= summary.paths.averageDistance)
+  check('the curated graph is fully connected', summary.paths.connected === true,
+    String(summary.paths.unreachablePairs) + ' unreachable pairs')
+
+  // Bridges cross factions.
+  check('bridge list is non-empty', summary.bridges.top.length > 0)
+  check('bridges really cross factions', summary.bridges.top.every((r) => r.bridgeCount >= 1))
+  check('bridge targets are real factions',
+    summary.bridges.top.every((r) => r.bridgesTo.every((f) => charIds.size > 0 && Boolean(f.name))))
+
+  // Determinism: the same input must produce the same ranking.
+  const again = analysisMod.networkSummary({ limit: 10 })
+  check('analysis is deterministic',
+    JSON.stringify(summary.degree.top) === JSON.stringify(again.degree.top))
 }
 
 /* ------------------------------------------------------------------ *

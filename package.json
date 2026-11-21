@@ -1,7 +1,7 @@
 {
   "name": "@naturalth2012/middle-earth-atlas",
   "version": "1.0.0",
-  "description": "A canon-aware atlas of The Lord of the Rings: 56 characters with 205 curated relationships, an interactive graph, a 33-event timeline, 27 places, 14 artifacts, 40 quotes, plot arcs, reading paths, book-vs-screen differences, and 14 playable avatar journeys (43 scenes, 90 choices) — in a side panel and through eight agent tools.",
+  "description": "A canon-aware atlas of The Lord of the Rings: 56 characters, 205 relationships, an interactive graph with quantitative network analysis, a 33-event timeline, 27 places, 14 artifacts, 40 quotes, 7 thematic dialectics, book-vs-screen differences, and 14 playable avatar journeys with a spoiler-aware reading gate — in a side panel and through ten agent tools.",
   "type": "module",
   "license": "MIT",
   "author": "naturalth2012",
@@ -43,7 +43,10 @@
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg",
     "./storage": "./storage.js",
-    "./validate-source": "./validate-source.js"
+    "./validate-source": "./validate-source.js",
+    "./spoiler": "./spoiler.js",
+    "./themes": "./themes.js",
+    "./analysis": "./analysis.js"
   },
   "files": [
     "index.js",
@@ -70,7 +73,12 @@
     "docs/AUDIT.md",
     "docs/PLAN-ATMOSPHERE.md",
     "docs/PLAN-P0.md",
-    "docs/ROADMAP.md"
+    "docs/ROADMAP.md",
+    "spoiler.js",
+    "themes.js",
+    "analysis.js",
+    "docs/PLAN-SPOILER.md",
+    "docs/ANALYSIS-THREE-BODY.md"
   ],
   "dsh": {
     "bundle": {

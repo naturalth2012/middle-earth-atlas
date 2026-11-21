@@ -15,6 +15,9 @@ import {
   relationPath, timeline, plot, journeys, ask, suggestions,
   avatarList, avatarJourney, judgeJourney,
 } from './engine.js'
+import { TIER_LABELS, MAX_TIER, RECORD_TIER, maskList } from './spoiler.js'
+import { THEMES } from './themes.js'
+import { networkSummary } from './analysis.js'
 
 const BASE = '/plugins/middle-earth-atlas'
 export const BUNDLE_PATH = BASE + '/bundle'
@@ -34,6 +37,9 @@ export const ASK_PATH = BASE + '/ask'
 export const AVATARS_PATH = BASE + '/avatars'
 export const AVATAR_PATH = BASE + '/avatar'
 export const AVATAR_JUDGE_PATH = BASE + '/avatar-judge'
+export const SPOILER_PATH = BASE + '/spoiler-tiers'
+export const THEMES_PATH = BASE + '/themes'
+export const ANALYSIS_PATH = BASE + '/analysis'
 
 const textOutput = {
   schema: { type: 'object', properties: { text: { type: 'string' } }, additionalProperties: true },
@@ -102,6 +108,93 @@ export function apply(ctx) {
   ctx.inject(['tools'], (toolCtx) => {
     const register = (def, label) => toolCtx.effect(() => toolCtx.tools.register(def), label)
 
+
+    register({
+      name: 'middle_earth_theme',
+      description:
+        'Read the multi-angle analysis of a Middle-earth theme (mercy vs prudence, fate vs choice, power vs corruption). '
+        + 'Returns the question, three defensible positions, and the open discussion. Set list to true to enumerate every theme.',
+      parameters: {
+        type: 'object',
+        properties: {
+          topic: { type: 'string', description: 'Theme title or keyword, e.g. 怜悯 / 命运 / 权力' },
+          list: { type: 'boolean', description: 'Set true to list every available theme with its question.' },
+          maxTier: { type: 'integer', description: 'Reading progress ceiling 1-3; themes above it are withheld.' },
+        },
+        additionalProperties: false,
+      },
+      output: textOutput,
+      async execute(args) {
+        const maxTier = Number((args && args.maxTier)) || MAX_TIER
+        const visible = THEMES.filter((x) => (x.tier || MAX_TIER) <= maxTier)
+        if (!visible.length) return { text: '当前剧透等级下没有可见的主题。' }
+
+        if (args && args.list) {
+          return {
+            text: visible.map((x) => '- ' + x.title + '：' + x.question).join('\n'),
+          }
+        }
+
+        const q = String((args && args.topic) || '').trim().toLowerCase()
+        if (!q) {
+          return { text: '请给出主题，或设置 list 为 true 列出全部。\n\n' + visible.map((x) => '- ' + x.title).join('\n') }
+        }
+        const hit = visible.find((x) => x.title.toLowerCase().includes(q) || x.id.includes(q))
+          || visible.find((x) => x.summary.toLowerCase().includes(q) || x.question.toLowerCase().includes(q))
+        if (!hit) {
+          return { text: '没有找到该主题。可用的有：\n' + visible.map((x) => '- ' + x.title).join('\n') }
+        }
+        const lines = [
+          '# ' + hit.title,
+          '**问题**：' + hit.question,
+          '',
+          hit.summary,
+          '',
+          '## 三种答案',
+          ...hit.sides.map((side) => '- **' + side.name + '**：' + side.view),
+          '',
+          '## 留给读者的问题',
+          hit.discussion,
+        ]
+        return { text: lines.join('\n') }
+      },
+    }, 'middle-earth-atlas: middle_earth_theme tool')
+
+    register({
+      name: 'middle_earth_analysis',
+      description:
+        'Quantitative analysis of the character relationship network: degree centrality, betweenness centrality, '
+        + 'average path length and diameter, and which characters bridge which factions. Use it for '
+        + '"谁是中土关系最核心的人" or "任意两人平均相隔几跳".',
+      parameters: {
+        type: 'object',
+        properties: {
+          limit: { type: 'integer', description: 'Rows per ranking, default 10.' },
+        },
+        additionalProperties: false,
+      },
+      output: textOutput,
+      async execute(args) {
+        const a = networkSummary({ limit: Number((args && args.limit)) || 10 })
+        const lines = [
+          '**关系网络**：' + a.nodes + ' 个角色，' + a.relations + ' 条关系，密度 ' + a.density,
+          '',
+          '**连接最多（度数中心性）**',
+          ...a.degree.top.map((r, i) => (i + 1) + '. ' + r.name + '（' + r.degree + ' 位直接关系·' + r.factionLabel + '）'),
+          '',
+          '**最关键的桥（中介中心性）**',
+          ...a.betweenness.top.map((r, i) => (i + 1) + '. ' + r.name + '（' + r.betweenness + '）'),
+          '',
+          '**距离**：平均 ' + a.paths.averageDistance + ' 跳，直径 ' + a.paths.diameter + ' 跳'
+            + (a.paths.connected ? '，全图连通' : '，有 ' + a.paths.unreachablePairs + ' 对不可达'),
+          '',
+          '**跨阵营的桥**',
+          ...a.bridges.top.map((r) => '- ' + r.name + '：连接 ' + r.bridgesTo.map((f) => f.name).join('、')),
+        ]
+        return { text: lines.join('\n') }
+      },
+    }, 'middle-earth-atlas: middle_earth_analysis tool')
+
     register({
       name: 'middle_earth_search',
       description:
@@ -114,6 +207,7 @@ export function apply(ctx) {
           faction: { type: 'string', description: 'Optional faction id: hobbit, ranger, wizard, elf, dwarf, man, sauron, numenor, wild' },
           work: { type: 'string', description: 'Optional work id: hobbit-book, lotr-book, silmarillion, hobbit-films, lotr-films, rop' },
           scope: { type: 'string', enum: ['all', 'characters'], description: 'Search everything (default) or characters only.' },
+          maxTier: { type: 'integer', description: 'Reading progress ceiling 1-3: 1 = safe after The Hobbit, 2 = after The Lord of the Rings, 3 = everything (default).' },
         },
         additionalProperties: false,
       },
@@ -121,7 +215,9 @@ export function apply(ctx) {
       async execute(args) {
         const query = (args && args.query) || ''
         if (args && args.scope === 'characters') {
-          const hits = searchCharacters(query, { faction: args.faction, work: args.work })
+          const hits = searchCharacters(query, {
+            faction: args.faction, work: args.work, maxTier: args.maxTier,
+          })
           if (!hits.length) return { text: '没有找到匹配的角色。' }
           return {
             text: hits.slice(0, 15).map((c) =>
@@ -129,7 +225,7 @@ export function apply(ctx) {
             ).join('\n'),
           }
         }
-        const result = searchAll(query)
+        const result = searchAll(query, { maxTier: args && args.maxTier })
         if (!result.total) return { text: '没有找到匹配的内容。' }
         const lines = result.groups.map((g) =>
           `**${g.label}（${g.items.length}）**\n` + g.items.slice(0, 10).map((it) =>
@@ -153,6 +249,7 @@ export function apply(ctx) {
             enum: ['character', 'place', 'artifact', 'glossary', 'work'],
             description: 'Optional explicit entity kind; inferred when omitted.',
           },
+          maxTier: { type: 'integer', description: 'Reading progress ceiling 1-3: 1 = safe after The Hobbit, 2 = after The Lord of the Rings, 3 = everything (default).' },
         },
         required: ['name'],
         additionalProperties: false,
@@ -268,12 +365,16 @@ export function apply(ctx) {
           work: { type: 'string', description: 'Optional work id filter' },
           character: { type: 'string', description: 'Optional character name/id filter' },
           age: { type: 'string', description: 'Optional age, e.g. 第三纪元' },
+          maxTier: { type: 'integer', description: 'Reading progress ceiling 1-3: 1 = safe after The Hobbit, 2 = after The Lord of the Rings, 3 = everything (default).' },
         },
         additionalProperties: false,
       },
       output: textOutput,
       async execute(args) {
-        const result = timeline({ work: args && args.work, character: args && args.character, age: args && args.age })
+        const result = timeline({
+          work: args && args.work, character: args && args.character,
+          age: args && args.age, maxTier: args && args.maxTier,
+        })
         if (!result.events.length) return { text: '该筛选条件下没有事件。' }
         return { text: result.events.map((e) => `- ${e.age} · ${e.year} **${e.title}**：${e.desc}`).join('\n') }
       },
@@ -291,6 +392,7 @@ export function apply(ctx) {
           from: { type: 'string', description: 'Path start character' },
           to: { type: 'string', description: 'Path end character' },
           faction: { type: 'string', description: 'Optional faction filter' },
+          maxTier: { type: 'integer', description: 'Reading progress ceiling 1-3: 1 = safe after The Hobbit, 2 = after The Lord of the Rings, 3 = everything (default).' },
         },
         additionalProperties: false,
       },
@@ -339,7 +441,7 @@ export function apply(ctx) {
       },
       output: textOutput,
       async execute(args) {
-        return { text: ask((args && args.question) || '') }
+        return { text: ask((args && args.question) || '', { maxTier: args && args.maxTier }) }
       },
     }, 'middle-earth-atlas: middle_earth_ask tool')
 
@@ -446,29 +548,31 @@ export function apply(ctx) {
     const register = (path, compute, label) =>
       webCtx.effect(() => webCtx.webServer.register({ kind: 'exact', path, handler: routeHandler(path, compute) }), label)
 
-    register(BUNDLE_PATH, () => bundle(), 'middle-earth-atlas: bundle route')
+    register(BUNDLE_PATH, (p) => bundle({ maxTier: p.get('maxTier') }),
+      'middle-earth-atlas: bundle route')
 
     register(SEARCH_PATH, (p) => ({
       results: searchCharacters(p.get('q') || '', {
         faction: p.get('faction') || undefined,
         work: p.get('work') || undefined,
         kind: p.get('kind') || undefined,
+        maxTier: p.get('maxTier'),
       }),
       counts: counts(),
     }), 'middle-earth-atlas: search route')
 
     register(ALL_PATH, (p) => searchAll(p.get('q') || ''), 'middle-earth-atlas: universal search route')
 
-    register(DETAIL_PATH, (p) => characterDetail(p.get('id') || p.get('q') || '')
+    register(DETAIL_PATH, (p) => characterDetail(p.get('id') || p.get('q') || '', { maxTier: p.get('maxTier') })
       || { error: '没有找到该角色' }, 'middle-earth-atlas: detail route')
 
-    register(PLACE_PATH, (p) => placeDetail(p.get('id') || p.get('q') || '')
+    register(PLACE_PATH, (p) => placeDetail(p.get('id') || p.get('q') || '', { maxTier: p.get('maxTier') })
       || { error: '没有找到该地点' }, 'middle-earth-atlas: place route')
 
-    register(ARTIFACT_PATH, (p) => artifactDetail(p.get('id') || p.get('q') || '')
+    register(ARTIFACT_PATH, (p) => artifactDetail(p.get('id') || p.get('q') || '', { maxTier: p.get('maxTier') })
       || { error: '没有找到该物品' }, 'middle-earth-atlas: artifact route')
 
-    register(GLOSSARY_PATH, (p) => glossaryDetail(p.get('id') || p.get('q') || '')
+    register(GLOSSARY_PATH, (p) => glossaryDetail(p.get('id') || p.get('q') || '', { maxTier: p.get('maxTier') })
       || { error: '没有找到该术语' }, 'middle-earth-atlas: glossary route')
 
     register(GRAPH_PATH, (p) => buildGraph({
@@ -477,7 +581,7 @@ export function apply(ctx) {
       faction: p.get('faction') || undefined,
     }), 'middle-earth-atlas: graph route')
 
-    register(NEIGHBORS_PATH, (p) => neighbors(p.get('id') || p.get('q') || '')
+    register(NEIGHBORS_PATH, (p) => neighbors(p.get('id') || p.get('q') || '', { maxTier: p.get('maxTier') })
       || { error: '没有找到该角色' }, 'middle-earth-atlas: neighbors route')
 
     register(PATH_PATH, (p) => relationPath(p.get('from') || '', p.get('to') || ''),
@@ -487,6 +591,7 @@ export function apply(ctx) {
       work: p.get('work') || undefined,
       character: p.get('character') || undefined,
       age: p.get('age') || undefined,
+      maxTier: p.get('maxTier'),
     }), 'middle-earth-atlas: timeline route')
 
     register(PLOT_PATH, (p) => ({ plots: plot({ work: p.get('work') || undefined }) }),
@@ -494,6 +599,22 @@ export function apply(ctx) {
 
     register(JOURNEYS_PATH, (p) => ({ journeys: journeys({ work: p.get('work') || undefined }) }),
       'middle-earth-atlas: journeys route')
+
+    register(THEMES_PATH, (p) => {
+      const maxTier = Number(p.get('maxTier')) || MAX_TIER
+      const themes = THEMES.filter((x) => (x.tier || MAX_TIER) <= maxTier)
+      return { themes, total: THEMES.length, visible: themes.length, maxTier }
+    }, 'middle-earth-atlas: themes route')
+
+    register(ANALYSIS_PATH, (p) => networkSummary({
+      limit: Number(p.get('limit')) || 10,
+    }), 'middle-earth-atlas: network analysis route')
+
+    register(SPOILER_PATH, () => ({
+      maxTier: MAX_TIER,
+      tiers: TIER_LABELS,
+      overrides: Object.keys(RECORD_TIER).length,
+    }), 'middle-earth-atlas: spoiler tiers route')
 
     register(ASK_PATH, (p) => ({
       answer: ask(p.get('q') || ''),

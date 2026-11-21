@@ -1,0 +1,69 @@
+{
+  "name": "@naturalth2012/middle-earth-atlas",
+  "version": "1.0.0",
+  "description": "A canon-aware atlas of The Lord of the Rings: 55 characters with 202 curated relationships, an interactive relationship graph, a timeline across the Ages, places and artifacts, glossary and quotes, plot arcs, reading paths, and book-vs-screen differences — explorable in a side panel and through six agent tools.",
+  "type": "module",
+  "license": "MIT",
+  "author": "naturalth2012",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "tolkien",
+    "lord-of-the-rings",
+    "middle-earth",
+    "knowledge-graph",
+    "silmarillion",
+    "rings-of-power"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/naturalth2012/middle-earth-atlas.git"
+  },
+  "homepage": "https://github.com/naturalth2012/middle-earth-atlas#readme",
+  "bugs": {
+    "url": "https://github.com/naturalth2012/middle-earth-atlas/issues"
+  },
+  "engines": {
+    "dsh": ">=0.2.2-rc.1"
+  },
+  "scripts": {
+    "test": "node scripts/selfcheck.mjs",
+    "check": "node scripts/selfcheck.mjs && node scripts/probe.mjs && node scripts/probe-drawer.mjs",
+    "probe": "node scripts/probe.mjs && node scripts/probe-drawer.mjs"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./engine": "./engine.js",
+    "./data": "./data.js",
+    "./lore": "./lore.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "engine.js",
+    "data.js",
+    "lore.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "docs/DETAIL.md",
+    "docs/PUBLISHING.md",
+    "icon.svg",
+    "README.md",
+    "LICENSE",
+    "scripts/selfcheck.mjs",
+    "scripts/probe.mjs",
+    "scripts/probe-drawer.mjs"
+  ],
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": ["@deepseek-ai/dsh-client-ui-conversation"]
+    }
+  }
+}

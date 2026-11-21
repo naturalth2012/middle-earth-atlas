@@ -1,0 +1,6 @@
+# Normalize to LF in the repository so the plugin behaves the same on every OS.
+* text=auto eol=lf
+
+# Binary assets keep their bytes untouched.
+*.svg  -text
+*.tgz  -text

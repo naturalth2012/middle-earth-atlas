@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Middle-earth Atlas",
+    "description": "A searchable, interactive atlas of The Lord of the Rings: character relationships, timeline, reading paths, and book-vs-screen differences, shared between a side panel and agent tools.",
+    "detail": "docs/DETAIL.md"
+  }
+}

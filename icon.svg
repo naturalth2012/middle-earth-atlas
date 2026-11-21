@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="36" height="36" role="img" aria-label="Middle-earth Atlas">
+  <defs>
+    <linearGradient id="mea-ring" x1="0" y1="0" x2="0.85" y2="1">
+      <stop offset="0" stop-color="#e7c55a"/>
+      <stop offset="0.55" stop-color="#c9972f"/>
+      <stop offset="1" stop-color="#8a6418"/>
+    </linearGradient>
+    <linearGradient id="mea-inner" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2416"/>
+      <stop offset="1" stop-color="#171208"/>
+    </linearGradient>
+  </defs>
+  <circle cx="18" cy="18" r="14" fill="none" stroke="url(#mea-ring)" stroke-width="4.6"/>
+  <circle cx="18" cy="18" r="11.4" fill="url(#mea-inner)"/>
+  <path d="M10.5 18c2.4-3.1 5-4.6 7.5-4.6s5.1 1.5 7.5 4.6c-2.4 3.1-5 4.6-7.5 4.6s-5.1-1.5-7.5-4.6z" fill="none" stroke="#e7c55a" stroke-width="1.25" opacity="0.9"/>
+  <circle cx="18" cy="18" r="2.35" fill="#e7c55a"/>
+  <circle cx="18" cy="18" r="1.05" fill="#171208"/>
+</svg>

@@ -1,0 +1,386 @@
+/**
+ * Middle-earth Atlas — lore dataset.
+ *
+ * Companion to data.js: places, artifacts, glossary terms, memorable quotes,
+ * plot beats per work, and the routes characters actually travel. Same canon
+ * conventions: every record says where it comes from.
+ */
+
+export const PLACES = [
+  {
+    id: 'shire', name: '夏尔', nameEn: 'The Shire', region: '埃利阿多',
+    type: '霍比特人家园', canon: '原著与电影', faction: 'hobbit',
+    summary: '霍比特人的故乡，袋底洞、绿龙客栈与霍比屯都在这里；故事从这里开始，也在这里结束。',
+    desc: '《魔戒》的起点与终点。弗罗多与山姆回到夏尔时发现它已被萨鲁曼的爪牙破坏（原著），电影则把“夏尔清洗”删去。',
+    characters: ['frodo', 'sam', 'bilbo', 'merry', 'pippin', 'rosie'],
+    works: ['hobbit-book', 'lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'rivendell', name: '瑞文戴尔', nameEn: 'Rivendell', region: '埃利阿多',
+    type: '精灵庇护所', canon: '原著与电影', faction: 'elf',
+    summary: '埃尔隆德的居所，“最后家园”；护戒同盟在此成立，比尔博在此养老。',
+    desc: '藏在山谷中的精灵避难所。原著中被称为“Imladris”，是疲惫者的休憩之地。',
+    characters: ['elrond', 'arwen', 'bilbo', 'gandalf', 'glorfindel', 'aragorn'],
+    works: ['hobbit-book', 'hobbit-films', 'lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'moria', name: '摩瑞亚（卡扎督姆）', nameEn: 'Moria / Khazad-dûm', region: '迷雾山脉',
+    type: '矮人地下城', canon: '原著与电影', faction: 'dwarf',
+    summary: '矮人最伟大的地下城，因挖得太深唤醒炎魔而被废弃；护戒同盟穿越时在此失去甘道夫。',
+    desc: '都灵一族的故乡。马扎布尔室中留有巴林远征队的墓与绝望的记载。',
+    characters: ['balin', 'gandalf', 'balrog', 'gimli', 'frodo'],
+    works: ['hobbit-book', 'lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'lothlorien', name: '罗斯洛立安', nameEn: 'Lothlórien', region: '安都因河以西',
+    type: '精灵王国', canon: '原著与电影', faction: 'elf',
+    summary: '凯兰崔尔与凯勒鹏的黄金森林，时间在此近乎停滞；水镜与礼物都在这里。',
+    desc: '以梅隆树构筑的精灵王国。吉姆利被允许看一眼凯兰崔尔，从此成为“精灵之友”。',
+    characters: ['galadriel', 'celeborn', 'haldir', 'frodo', 'gimli'],
+    works: ['lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'isengard', name: '艾森加德', nameEn: 'Isengard', region: '洛汗西北',
+    type: '萨鲁曼的堡垒', canon: '原著与电影', faction: 'sauron',
+    summary: '萨鲁曼的塔楼欧尔桑克与工业化兵工厂；最终被恩特大军摧毁。',
+    desc: '原本是刚铎的北方前哨，被萨鲁曼据为己有。树胡的恩特把这里变成一片汪洋与废墟。',
+    characters: ['saruman', 'grima', 'treebeard', 'merry', 'pippin'],
+    works: ['lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'edoras', name: '伊多拉斯', nameEn: 'Edoras', region: '洛汗',
+    type: '洛汗王城', canon: '原著与电影', faction: 'man',
+    summary: '洛汗的黄金厅美杜塞尔德所在，希优顿在此被格里马蒙蔽，也在此被甘道夫唤醒。',
+    desc: '建在山丘上的木造王城，马与骠骑是这里的灵魂。',
+    characters: ['theoden', 'eowyn', 'eomer', 'grima', 'gandalf', 'hama'],
+    works: ['lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'helms_deep', name: '圣盔谷', nameEn: 'Helm’s Deep', region: '洛汗',
+    type: '要塞', canon: '原著与电影', faction: 'man',
+    summary: '洛汗的号角堡，背靠大山；希优顿在此以寡敌众，抵挡萨鲁曼的强兽人大军直到黎明。',
+    desc: '电影中加入了精灵援军（哈尔迪尔战死），原著则只有洛汗人与甘道夫、阿拉贡等人。',
+    characters: ['theoden', 'aragorn', 'gimli', 'legolas', 'eowyn', 'hama', 'haldir'],
+    works: ['lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'minas_tirith', name: '米那斯提力斯', nameEn: 'Minas Tirith', region: '刚铎',
+    type: '刚铎王城', canon: '原著与电影', faction: 'man',
+    summary: '七层白城，刚铎的首都；迪耐瑟在此自焚，阿拉贡在此加冕。',
+    desc: '原名“米那斯阿诺尔”（升月之塔），与米那斯魔窟（米那斯伊希尔）本是一对姊妹城。',
+    characters: ['denethor', 'faramir', 'pippin', 'gandalf', 'aragorn', 'boromir'],
+    works: ['lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'minas_morgul', name: '米那斯魔窟', nameEn: 'Minas Morgul', region: '魔多边境',
+    type: '戒灵之城', canon: '原著与电影', faction: 'sauron',
+    summary: '巫王的据点，散发苍白光芒的邪恶之城；弗罗多一行必须从它旁边的小径穿过。',
+    desc: '原名“米那斯伊希尔”（落日之塔），被索伦攻占后成为恐惧的象征。',
+    characters: ['witchking', 'nazgul', 'frodo', 'sam', 'gollum'],
+    works: ['lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'mordor', name: '魔多', nameEn: 'Mordor', region: '中土东南',
+    type: '黑暗之地', canon: '原著与电影', faction: 'sauron',
+    summary: '索伦的国度，被埃瑞德砾斯山脉环绕；末日火山与巴拉多塔都在这里。',
+    desc: '“黑之地”。西力斯昂哥隘口是唯一相对可行的进入路径，而尸罗的巢穴正守在洞口。',
+    characters: ['sauron', 'gollum', 'frodo', 'sam', 'shelob', 'nazgul'],
+    works: ['lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'mount_doom', name: '末日火山', nameEn: 'Mount Doom / Orodruin', region: '魔多',
+    type: '火山', canon: '原著与电影', faction: 'sauron',
+    summary: '索伦铸造至尊魔戒的火山，也是唯一能销毁它的地方；弗罗多与咕噜在此终结了魔戒。',
+    desc: '“火焰之山”。魔戒只在它被铸造的烈焰中才能被销毁。',
+    characters: ['frodo', 'sam', 'gollum', 'sauron'],
+    works: ['lotr-book', 'lotr-films', 'silmarillion'],
+  },
+  {
+    id: 'erebor', name: '孤山（埃瑞博）', nameEn: 'Erebor / The Lonely Mountain', region: '罗瓦尼安',
+    type: '矮人王国', canon: '原著与电影', faction: 'dwarf',
+    summary: '索林一族的山下王国，被史矛革占据；远征队夺回后重立王座。',
+    desc: '《霍比特人》的终点。阿肯宝石与山之心藏在此处。',
+    characters: ['thorin', 'bilbo', 'smaug', 'balin', 'dain', 'bard'],
+    works: ['hobbit-book', 'hobbit-films'],
+  },
+  {
+    id: 'mirkwood', name: '幽暗密林', nameEn: 'Mirkwood', region: '罗瓦尼安',
+    type: '森林', canon: '原著与电影', faction: 'elf',
+    summary: '瑟兰迪尔的精灵王国所在，林中充满迷雾与危险；比尔博在此拾得魔戒，也在此与蜘蛛搏斗。',
+    desc: '原名“大绿林”，因索伦的阴影盘踞而被称作幽暗密林。',
+    characters: ['thranduil', 'legolas', 'bilbo', 'thorin', 'gollum'],
+    works: ['hobbit-book', 'hobbit-films', 'lotr-book'],
+  },
+  {
+    id: 'fangorn', name: '法贡森林', nameEn: 'Fangorn Forest', region: '洛汗边境',
+    type: '古森林', canon: '原著与电影', faction: 'wild',
+    summary: '树胡与恩特的家园，中土最古老的森林之一；梅里与皮平在此遇见树胡。',
+    desc: '森林本身似乎有意志。电影把恩特大会拍得极为壮阔。',
+    characters: ['treebeard', 'merry', 'pippin', 'saruman'],
+    works: ['lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'grey_havens', name: '灰港岸', nameEn: 'Grey Havens / Mithlond', region: '林顿',
+    type: '港口', canon: '原著与电影', faction: 'elf',
+    summary: '精灵西渡的港口，由造船者瑟丹掌管；第三纪元的终章在此告别。',
+    desc: '魔戒持有者与精灵从这里的白船驶向不死之地，是全书最温柔也最哀伤的结尾。',
+    characters: ['frodo', 'bilbo', 'gandalf', 'galadriel', 'elrond', 'sam'],
+    works: ['lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'numenor', name: '努门诺尔', nameEn: 'Númenor', region: '大海之中',
+    type: '沉没的王国', canon: '原著', faction: 'numenor',
+    summary: '第二纪元的人类高等王国，被索伦蛊惑后进攻不死之地，遭大地吞没。',
+    desc: '“西方之地”。它的沉没开启了刚铎与阿尔诺的历史。',
+    characters: ['ar_pharazon', 'miriel', 'elendil', 'isildur', 'sauron'],
+    works: ['silmarillion', 'rop'],
+  },
+  {
+    id: 'eregion', name: '埃瑞吉安', nameEn: 'Eregion / Hollin', region: '埃利阿多',
+    type: '精灵工匠国', canon: '原著', faction: 'elf',
+    summary: '凯勒布林博的精灵工匠之国，精灵三戒在此铸成；被索伦攻破后成为废墟。',
+    desc: '摩瑞亚西门正对着埃瑞吉安。护戒同盟穿越这里时，山姆还感慨“精灵做过的东西”。',
+    characters: ['celebrimbor', 'sauron', 'galadriel', 'elrond'],
+    works: ['silmarillion', 'lotr-book', 'rop'],
+  },
+  {
+    id: 'khazad_dum_rop', name: '凯扎杜姆', nameEn: 'Khazad-dûm (Second Age)', region: '迷雾山脉',
+    type: '矮人王国（第二纪元）', canon: '剧集演绎', faction: 'dwarf',
+    summary: '《力量之戒》中鼎盛的矮人王国，密银矿与王权矛盾是剧集支线。',
+    desc: '与第三纪元的摩瑞亚是同一地点，但剧集呈现的是它最辉煌的时代。',
+    characters: ['durin', 'elrond'],
+    works: ['rop'],
+  },
+]
+
+export const ARTIFACTS = [
+  {
+    id: 'one_ring', name: '至尊魔戒', nameEn: 'The One Ring', type: '魔戒', canon: '原著与电影',
+    summary: '索伦铸造的统治之戒，注入了他大半的意志与力量；销毁它是整个故事的目标。',
+    desc: '刻有腾格瓦字母的咒语：“一枚戒统御众戒……在黑暗中禁锢它们。”它会延长持有者寿命、赋予隐形，但也侵蚀其意志。',
+    owners: ['sauron', 'isildur', 'deagol', 'gollum', 'bilbo', 'frodo'],
+    works: ['hobbit-book', 'lotr-book', 'lotr-films', 'silmarillion'],
+  },
+  {
+    id: 'three_rings', name: '精灵三戒', nameEn: 'The Three Elven Rings', type: '魔戒', canon: '原著',
+    summary: '维雅（气）、纳雅（火）、宁若戴尔（水）；未受索伦污染，却受至尊戒制约。',
+    desc: '分别由吉尔加拉德/埃尔隆德、甘道夫（原属瑟丹）、凯兰崔尔持有。魔戒销毁后它们的力量也随之消退。',
+    owners: ['elrond', 'gandalf', 'galadriel'],
+    works: ['silmarillion', 'lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'nine_rings', name: '人类九戒', nameEn: 'The Nine Rings', type: '魔戒', canon: '原著',
+    summary: '索伦赠予人类君王的九戒，把他们变成戒灵（Nazgûl）。',
+    desc: '“凡人皆有一死”，而九戒让持有者既不死也不活，最终沦为索伦的幽灵仆从。',
+    owners: ['witchking', 'nazgul', 'sauron'],
+    works: ['silmarillion', 'lotr-book'],
+  },
+  {
+    id: 'seven_rings', name: '矮人七戒', nameEn: 'The Seven Rings', type: '魔戒', canon: '原著',
+    summary: '赠予矮人七族的戒指，未能使其臣服，却助长了他们对金子的贪婪。',
+    desc: '其中一枚据说是索林家族“山之心”传说的根源之一，最终被巨龙吞入或失落。',
+    owners: ['thorin', 'sauron'],
+    works: ['silmarillion', 'hobbit-book'],
+  },
+  {
+    id: 'narsil', name: '纳希尔圣剑', nameEn: 'Narsil / Andúril', type: '武器', canon: '原著与电影',
+    summary: '伊兰迪尔的佩剑，在最后同盟之战中折断；重铸后名为“安都瑞尔”，由阿拉贡持有。',
+    desc: '“日月之光”。电影中重铸一幕由埃尔隆德完成，并命名为“西方之焰”。',
+    owners: ['elendil', 'isildur', 'aragorn'],
+    works: ['silmarillion', 'lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'sting', name: '刺针剑', nameEn: 'Sting', type: '武器', canon: '原著与电影',
+    summary: '比尔博从食人妖洞穴得到的精灵短剑，遇到半兽人会发蓝光；后传给弗罗多，最后由山姆收藏。',
+    desc: '原著中弗罗多给它取名，因为“它像针一样扎人”。电影把它做成弗罗多的标志性装备。',
+    owners: ['bilbo', 'frodo', 'sam'],
+    works: ['hobbit-book', 'hobbit-films', 'lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'glamdring', name: '格兰德林', nameEn: 'Glamdring', type: '武器', canon: '原著与电影',
+    summary: '甘道夫的精灵宝剑，“击敌之锤”，同样出自第一纪元。',
+    desc: '与刺针、兽咬剑一同在食人妖洞穴被发现，原属于刚多林的精灵王。',
+    owners: ['gandalf'],
+    works: ['hobbit-book', 'hobbit-films', 'lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'palantiri', name: '真知晶石', nameEn: 'Palantíri', type: '神器', canon: '原著',
+    summary: '七颗可远观与通讯的晶石，努门诺尔遗物；萨鲁曼与迪耐瑟都因它们被索伦操纵。',
+    desc: '索伦掌握着伊希尔晶石，因此任何使用真知晶石的人都可能被他窥视与误导。',
+    owners: ['saruman', 'denethor', 'sauron', 'pippin'],
+    works: ['lotr-book', 'silmarillion'],
+  },
+  {
+    id: 'silmarils', name: '精灵宝钻', nameEn: 'The Silmarils', type: '圣物', canon: '原著',
+    summary: '费诺封存双圣树之光的宝石，是《精灵宝钻》全书争夺的对象。',
+    desc: '中土一切命运的上游。理解了精灵宝钻，就理解了精灵的骄傲与悲伤。',
+    owners: ['celebrimbor'],
+    works: ['silmarillion'],
+  },
+  {
+    id: 'evenstar', name: '暮星', nameEn: 'The Evenstar', type: '信物', canon: '电影',
+    summary: '阿拉贡送给阿尔温的定情宝石，也是电影中两人情感的象征。',
+    desc: '电影原创的信物。原著中阿尔温给了阿拉贡一枚胸针（Elessar 之名也来源于此）。',
+    owners: ['arwen', 'aragorn'],
+    works: ['lotr-films'],
+  },
+  {
+    id: 'phial', name: '精灵之光', nameEn: 'Phial of Galadriel', type: '信物', canon: '原著与电影',
+    summary: '凯兰崔尔赠予弗罗多的水晶瓶，装着埃雅仁迪尔的星光；在尸罗巢穴中救了二人。',
+    desc: '山姆在尸罗巢穴中用它击退蜘蛛，大喊：“愿光明与你同在！”',
+    owners: ['galadriel', 'frodo', 'sam'],
+    works: ['lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'arkenstone', name: '阿肯宝石（山之心）', nameEn: 'Arkenstone', type: '宝物', canon: '原著与电影',
+    summary: '孤山最珍贵的宝石，索林家族王权的象征；比尔博将它藏起以避免战争。',
+    desc: '索林因它而失去理智，最终与它一同葬于孤山。',
+    owners: ['thorin', 'bilbo', 'bard'],
+    works: ['hobbit-book', 'hobbit-films'],
+  },
+  {
+    id: 'mithril', name: '密银', nameEn: 'Mithril', type: '材料', canon: '原著与电影',
+    summary: '“月银”，比钢铁更坚韧又更轻的金属；比尔博的锁子甲是它的制品。',
+    desc: '在第三纪元已极为稀有，矮人矿脉深处的传说材料。',
+    owners: ['bilbo', 'frodo', 'thorin'],
+    works: ['hobbit-book', 'lotr-book', 'lotr-films', 'rop'],
+  },
+  {
+    id: 'red_book', name: '西界红皮书', nameEn: 'The Red Book of Westmarch', type: '典籍', canon: '原著',
+    summary: '比尔博与弗罗多撰写的回忆录，托尔金“翻译”的中土故事便以此为虚构来源。',
+    desc: '《霍比特人》与《魔戒》在设定上都是这本书的译本——这是整个世界观最精巧的框架。',
+    owners: ['bilbo', 'frodo', 'sam'],
+    works: ['hobbit-book', 'lotr-book'],
+  },
+]
+
+export const GLOSSARY = [
+  { id: 'istari', term: '伊斯塔力', termEn: 'Istari', category: '群体',
+    definition: '维拉派往中土的迈雅使者，计五位，以巫师形态出现在第三纪元。',
+    detail: '萨鲁曼、甘道夫、瑞达吉斯特及另两位（阿拉塔与帕兰多）。“巫师”其实是限制力量的化身，任务是唤醒自由生灵，而非替代他们战斗。', related: ['gandalf', 'saruman', 'radagast'] },
+  { id: 'maiar', term: '迈雅', termEn: 'Maiar', category: '种族',
+    definition: '比维拉低一阶的灵性存在，创世之前便已诞生。',
+    detail: '索伦、炎魔、甘道夫、萨鲁曼都属于迈雅——这解释了他们为何拥有超常力量。', related: ['sauron', 'gandalf', 'balrog', 'saruman'] },
+  { id: 'valar', term: '维拉', termEn: 'Valar', category: '种族',
+    definition: '中土世界中最强大的造物，深受伊露维塔（独一之神）之命守护世界。',
+    detail: '他们远居不死之地；第三纪元中土的故事里，他们几乎只以“派遣巫师”的方式介入。', related: [] },
+  { id: 'numenor_rise', term: '努门诺尔', termEn: 'Númenor', category: '历史',
+    definition: '第二纪元的人类高等王国，由伊兰迪尔之前的人类英雄建立。',
+    detail: '最初得到维拉眷顾，后来因对死亡的恐惧与对不死之地的觊觎而堕落，最终被大地吞没。', related: ['ar_pharazon', 'elendil', 'miriel'] },
+  { id: 'rangers', term: '登丹人', termEn: 'Dúnedain', category: '群体',
+    definition: '北方王国阿尔诺的人类后裔，流亡后成为守护夏尔边境的游侠。',
+    detail: '阿拉贡是其首领，也是刚铎王位的合法继承人。他们长期不被记住，却默默守护着自由之地。', related: ['aragorn'] },
+  { id: 'ents', term: '恩特', termEn: 'Ents', category: '种族',
+    definition: '树一般的古老生灵，由雅凡娜请求伊露维塔创造，是森林的牧羊人。',
+    detail: '在法贡森林中守护树木；树胡是最年长者。他们行动缓慢，但一旦被激怒便势不可挡。', related: ['treebeard'] },
+  { id: 'nazgul_word', term: '戒灵', termEn: 'Nazgûl', category: '群体',
+    definition: '被九枚人类戒指腐化的幽灵骑士，完全受索伦控制。',
+    detail: '他们的形态介于生与死之间，只能被特殊武器所伤。', related: ['witchking', 'nazgul', 'sauron'] },
+  { id: 'frodo_wound', term: '米尔克伍德之伤', termEn: 'Morgul-wound', category: '概念',
+    definition: '弗罗多在风云顶被戒灵匕首刺中的伤口，无法被中土的医术治愈。',
+    detail: '这也是他最终需要西渡的原因之一——只有不死之地才能治愈。', related: ['frodo', 'nazgul', 'arwen'] },
+  { id: 'canon_layers', term: '原著 / 电影 / 剧集', termEn: 'Canon layers', category: '阅读提示',
+    definition: '本应用用三个层级标记信息：托尔金原著、彼得·杰克逊电影、亚马逊剧集。',
+    detail: '改编不等于原著。看到“剧集演绎”标签时，请把它当作一种解读，而非托尔金写下的事实。', related: [] },
+]
+
+export const QUOTES = [
+  { id: 'q1', text: '你不可通过！我是秘火的仆从，手持亚尔诺之焰。', textEn: 'You shall not pass!', speaker: 'gandalf', context: '摩瑞亚桥上的死斗', work: 'lotr-films', canon: '电影台词' },
+  { id: 'q2', text: '不是所有金子都发光，不是所有流浪者都迷路。', textEn: 'All that is gold does not glitter, not all those who wander are lost.', speaker: 'bilbo', context: '关于阿拉贡的诗句', work: 'lotr-book', canon: '原著' },
+  { id: 'q3', text: '即使在最黑暗的时刻，也有希望，只要还有一点光。', textEn: 'Even darkness must pass. A new day will come.', speaker: 'sam', context: '与弗罗多谈及末日火山', work: 'lotr-films', canon: '电影台词' },
+  { id: 'q4', text: '我不是活着的男人！', textEn: 'I am no man!', speaker: 'eowyn', context: '斩杀安格玛巫王时的宣言', work: 'lotr-films', canon: '原著与电影' },
+  { id: 'q5', text: '我会带上魔戒，虽然我不知道该如何走完这条路。', textEn: 'I will take the Ring, though I do not know the way.', speaker: 'frodo', context: '瑞文戴尔会议上自请出发', work: 'lotr-book', canon: '原著' },
+  { id: 'q6', text: '这世间还有许多美好的东西，值得我们去战斗。', textEn: 'There is some good in this world, and it’s worth fighting for.', speaker: 'sam', context: '安慰弗罗多的田园之思', work: 'lotr-films', canon: '电影台词' },
+  { id: 'q7', text: '我的手将不再触碰魔戒，但我要它离开这个世界。', textEn: 'I would not have it, but I will see it destroyed.', speaker: 'galadriel', context: '水镜前拒绝魔戒的诱惑', work: 'lotr-book', canon: '原著（电影表达相近）' },
+  { id: 'q8', text: '魔戒必须被销毁；除此之外别无他法。', textEn: 'The Ring must be destroyed.', speaker: 'elrond', context: '埃尔隆德会议', work: 'lotr-book', canon: '原著' },
+  { id: 'q9', text: '我的宝贝，我们终于要一起自由了。', textEn: 'Precious! We will be free!', speaker: 'gollum', context: '末日火山前的狂喜', work: 'lotr-films', canon: '电影台词' },
+  { id: 'q10', text: '我是甘道夫，也是白袍甘道夫；我如今是世界的守望者，是秘火的主人。', textEn: 'I am Gandalf the White.', speaker: 'gandalf', context: '化白后归来的宣告', work: 'lotr-films', canon: '电影台词' },
+  { id: 'q11', text: '不是所有眼泪都白流；不是所有伤痕都能被看见。', textEn: 'Some wounds do not close; some tears are eternal.', speaker: 'frodo', context: '关于无法痊愈的创伤（电影中的引申）', work: 'lotr-films', canon: '电影台词' },
+  { id: 'q12', text: '我会在最后一天与你同在。', textEn: 'I will be with you till the last.', speaker: 'arwen', context: '与阿拉贡的约定', work: 'lotr-films', canon: '电影台词' },
+  { id: 'q13', text: '即使断剑也能重铸，没有冠冕能阻挡回来的王者。', textEn: 'The blade that is broken shall be reforged.', speaker: 'elrond', context: '重铸纳希尔圣剑', work: 'lotr-book', canon: '原著' },
+  { id: 'q14', text: '把魔戒交给我们，然后你就可以自由了。', textEn: 'Give us the Ring and we shall be free.', speaker: 'gollum', context: '对弗罗多的“承诺”', work: 'lotr-films', canon: '电影台词' },
+  { id: 'q15', text: '当你的勇气耗尽了，你还可以选择继续。', textEn: 'When your courage fails, you can still choose to go on.', speaker: 'sam', context: '登顶末日火山途中', work: 'lotr-films', canon: '电影台词' },
+]
+
+/**
+ * Plot beats per work — ordered "what happens", so the app can present a
+ * readable synopsis without turning into a novel.
+ */
+export const PLOT = [
+  {
+    work: 'hobbit-book',
+    name: '《霍比特人》剧情脉络',
+    beats: [
+      { id: 'hb1', title: '意外之旅开始', desc: '甘道夫与十三矮人上门，比尔博被推着加入远征。', event: 'e10' },
+      { id: 'hb2', title: '食人妖与精灵剑', desc: '途中遭遇食人妖，得到刺针与格兰德林。', event: null },
+      { id: 'hb3', title: '幽暗密林：拾得魔戒', desc: '迷路中比尔博遇到咕噜，凭谜语取胜并脱下魔戒。', event: 'e10' },
+      { id: 'hb4', title: '史矛革与黑箭', desc: '巨龙惊醒，巴德以黑箭射杀史矛革，河谷之战爆发。', event: 'e9' },
+      { id: 'hb5', title: '五军之战与索林之死', desc: '矮人、精灵、人类与半兽人大战；索林重伤后与比尔博和解。', event: 'e10' },
+    ],
+  },
+  {
+    work: 'lotr-book',
+    name: '《魔戒》剧情脉络',
+    beats: [
+      { id: 'lr1', title: '夏尔的暗影', desc: '比尔博的告别宴后，弗罗多继承魔戒，甘道夫发现真相并指引他离开。', event: 'e11' },
+      { id: 'lr2', title: '同盟成立', desc: '瑞文戴尔会议上选出九名护戒使者，目标唯一：销毁魔戒。', event: 'e12' },
+      { id: 'lr3', title: '分裂与诱惑', desc: '摩瑞亚失去甘道夫，罗斯洛立安受试炼，最终在阿蒙汉分裂。', event: 'e16' },
+      { id: 'lr4', title: '双塔的反攻', desc: '洛汗觉醒、圣盔谷守住、恩特摧毁艾森加德；弗罗多与山姆走向魔多。', event: 'e17' },
+      { id: 'lr5', title: '王者的归来', desc: '帕兰诺决战、黑门欺骗、末日火山毁灭魔戒，阿拉贡加冕。', event: 'e23' },
+    ],
+  },
+  {
+    work: 'silmarillion',
+    name: '《精灵宝钻》脉络',
+    beats: [
+      { id: 'sm1', title: '创世与维拉', desc: '伊露维塔创造世界，维拉进入其中塑造大地。', event: 'e0' },
+      { id: 'sm2', title: '米尔寇的破坏', desc: '米尔寇堕落并持续腐蚀阿尔达，埋下所有悲剧的根。', event: 'e0' },
+      { id: 'sm3', title: '精灵宝钻与诺多的毁灭', desc: '费诺打造宝钻，诺多精灵为夺回它们犯下血腥誓约。', event: null },
+      { id: 'sm4', title: '索伦的起源', desc: '迈雅索伦追随米尔寇，成为其副手——这是魔戒的远因。', event: 'e0' },
+      { id: 'sm5', title: '努门诺尔沦亡', desc: '第二纪元人类王国的傲慢与沉没，直接引出刚铎与阿尔诺。', event: 'e5' },
+    ],
+  },
+  {
+    work: 'rop',
+    name: '《力量之戒》脉络',
+    beats: [
+      { id: 'rp1', title: '凯兰崔尔的执念', desc: '第二纪元的凯兰崔尔追索索伦的踪迹，被同伴质疑。', event: 'e1' },
+      { id: 'rp2', title: '南地战火', desc: '南地爆发战争，阿隆迪尔与布朗温卷入其中。', event: 'e2' },
+      { id: 'rp3', title: '努门诺尔的裂痕', desc: '努门诺尔宫廷围绕王权与索伦的影响分裂', event: 'e3' },
+      { id: 'rp4', title: '铸戒与揭示', desc: '精灵三戒锻造完成，而“哈尔布兰德”的真实身份被揭开。', event: 'e6' },
+    ],
+  },
+]
+
+/** Travel routes — the "geography of the story" layer. */
+export const JOURNEYS = [
+  {
+    id: 'fellowship',
+    name: '护戒同盟之路',
+    icon: '🚶',
+    stops: ['夏尔', '布理', '风云顶', '瑞文戴尔', '摩瑞亚', '罗斯洛立安', '阿蒙汉', '圣盔谷', '米那斯提力斯', '黑门'],
+    desc: '从宁静的夏尔到黑门，同盟的每一步都在缩小世界的希望。',
+    works: ['lotr-book', 'lotr-films'],
+  },
+  {
+    id: 'ringbearers',
+    name: '魔戒携带者之路',
+    icon: '💍',
+    stops: ['末日火山', '努门诺尔', '伊西铎', '格拉登平原', '安都因河', '咕噜', '比尔博', '弗罗多', '末日火山'],
+    desc: '一条环形轨迹：魔戒从火山出发，兜了两千年，又回到火山。',
+    works: ['lotr-book', 'lotr-films', 'silmarillion'],
+  },
+  {
+    id: 'quest_erebor',
+    name: '孤山远征之路',
+    icon: '🏔️',
+    stops: ['夏尔', '食人妖之地', '瑞文戴尔', '迷雾山脉', '幽暗密林', '长湖镇', '孤山'],
+    desc: '一条从安逸走向巨龙的路线，也是比尔博成为“不一样”的霍比特人的旅程。',
+    works: ['hobbit-book', 'hobbit-films'],
+  },
+]
+
+export const PLACE_BY_ID = Object.fromEntries(PLACES.map((p) => [p.id, p]))
+export const ARTIFACT_BY_ID = Object.fromEntries(ARTIFACTS.map((a) => [a.id, a]))
+export const GLOSSARY_BY_ID = Object.fromEntries(GLOSSARY.map((g) => [g.id, g]))
+export const QUOTE_BY_ID = Object.fromEntries(QUOTES.map((q) => [q.id, q]))

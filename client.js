@@ -30,15 +30,7 @@ window.__ModuleLoader__.load({
     const AVATARS_PATH = BASE + '/avatars'
     const AVATAR_PATH = BASE + '/avatar'
     const AVATAR_JUDGE_PATH = BASE + '/avatar-judge'
-
-
-    /* ------------------------------------------------------------------ *
-     * Avatar journey tab, inlined from avatar-tab.js.
-     *
-     * The browser loader only exposes require('react'), so this module cannot
-     * be imported at runtime; keep the source of truth in avatar-tab.js and
-     * regenerate this block with scripts/inline-avatar-tab.mjs.
-     * ------------------------------------------------------------------ */
+    /* --- avatar-tab:begin (generated from avatar-tab.js — do not edit here) --- */
     const buildAvatarTab = ({ h, React, t, paths }) => {
   const { AVATARS_PATH, AVATAR_PATH, AVATAR_JUDGE_PATH } = paths
 
@@ -257,10 +249,9 @@ window.__ModuleLoader__.load({
         ? h('div', { className: 'mea-empty' }, tr('avatarNone'))
         : h('div', { className: 'mea-avatar-grid' }, ...cards))
   }
-
     }
-
-    /* ------------------------------------------------------------------ *
+    /* --- avatar-tab:end --- */
+/* ------------------------------------------------------------------ *
      * Copy
      * ------------------------------------------------------------------ */
     const ZH = {

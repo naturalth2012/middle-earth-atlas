@@ -345,6 +345,72 @@ if (zhBlock) {
 /* ------------------------------------------------------------------ *
  * Manifest
  * ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ *
+ * Generated code
+ *
+ * `client.js` carries a generated copy of `avatar-tab.js`, because the browser
+ * module loader only exposes `require('react')`. A stale copy would ship UI the
+ * author believes they already changed, so the sync is verified here rather
+ * than trusted.
+ * ------------------------------------------------------------------ */
+group('generated code')
+
+{
+  const BEGIN = '/* --- avatar-tab:begin (generated from avatar-tab.js — do not edit here) --- */'
+  const END = '/* --- avatar-tab:end --- */'
+  const clientCode = fs.readFileSync(path.join(root, 'client.js'), 'utf8').replace(/\r\n/g, '\n')
+  const tabCode = fs.readFileSync(path.join(root, 'avatar-tab.js'), 'utf8').replace(/\r\n/g, '\n')
+
+  const beginAt = clientCode.indexOf(BEGIN)
+  const endAt = clientCode.indexOf(END)
+  check('client.js carries the generated avatar-tab block', beginAt !== -1 && endAt !== -1)
+  check('exactly one generated block', beginAt !== -1
+    && clientCode.indexOf(BEGIN, beginAt + 1) === -1)
+  check('begin marker precedes end marker', beginAt !== -1 && endAt > beginAt)
+
+  if (beginAt !== -1 && endAt > beginAt) {
+    const embedded = clientCode.slice(beginAt, endAt + END.length)
+
+    // Rebuild the expected block using the SAME algorithm the inliner uses, so
+    // the two cannot disagree about how the source is delimited. Any edit that
+    // the inliner would carry into client.js is therefore caught here.
+    const expected = buildExpectedBlock(tabCode)
+    check('could rebuild the expected block from avatar-tab.js', Boolean(expected))
+
+    if (expected) {
+      const normalise = (s) => s.split('\n').map((line) => line.replace(/\s+$/u, '')).join('\n').trim()
+      check('generated block matches avatar-tab.js (run: node scripts/inline-avatar-tab.mjs)',
+        normalise(embedded) === normalise(expected))
+    }
+  }
+}
+
+/**
+ * The inliner's contract, duplicated deliberately in a testable form.
+ * `avatar-tab.js` must contain exactly one exported builder whose body runs to
+ * the file's final closing brace; everything between is the generated block.
+ */
+function buildExpectedBlock(tabCode) {
+  const BEGIN = '/* --- avatar-tab:begin (generated from avatar-tab.js — do not edit here) --- */'
+  const END = '/* --- avatar-tab:end --- */'
+  const header = 'export function buildAvatarTab({ h, React, t, paths }) {'
+
+  const headerAt = tabCode.indexOf(header)
+  if (headerAt === -1) return null
+
+  const lastBrace = tabCode.lastIndexOf('\n}')
+  if (lastBrace === -1 || lastBrace < headerAt) return null
+
+  const body = tabCode.slice(headerAt + header.length, lastBrace).replace(/^\s*\n/, '')
+  return [
+    BEGIN,
+    '    const buildAvatarTab = ({ h, React, t, paths }) => {',
+    body.replace(/\n+$/, ''),
+    '    }',
+    '    ' + END,
+  ].join('\n')
+}
+
 group('manifest')
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))

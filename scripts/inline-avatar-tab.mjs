@@ -1,41 +1,107 @@
+/**
+ * Regenerate the avatar-tab block inside client.js from avatar-tab.js.
+ *
+ * The browser module loader only exposes `require('react')`, so a sibling ES
+ * module cannot be imported at runtime. Rather than introduce a build step,
+ * this script splices the tab source into client.js between two stable markers.
+ *
+ * The script is idempotent: it replaces an existing block, so re-running it is
+ * safe and always converges on the current source. `scripts/selfcheck.mjs`
+ * verifies the block is in sync, so a forgotten run fails the checks instead of
+ * silently shipping stale UI.
+ *
+ * Usage:
+ *   node scripts/inline-avatar-tab.mjs          # rewrite client.js
+ *   node scripts/inline-avatar-tab.mjs --check  # verify only, exit 1 if stale
+ */
 import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-// Inline avatar-tab.js into client.js: the browser module loader only provides
-// `require('react')`, so a sibling ESM file cannot be imported at runtime.
-const tabFile = 'avatar-tab.js'
-let tab = fs.readFileSync(tabFile, 'utf8').replace(/\r\n/g, '\n')
+const here = path.dirname(fileURLToPath(import.meta.url))
+const root = path.join(here, '..')
 
-// Convert the exported builder into an IIFE-assigned const inside the factory.
-tab = tab.replace(/^export function buildAvatarTab\(\{ h, React, t, paths \}\) \{\n/m, '')
-// The builder's body ends with the final closing brace of the function.
-const lastBrace = tab.lastIndexOf('\n}\n')
-if (lastBrace === -1) { console.error('could not find builder end'); process.exit(1) }
-let body = tab.slice(0, lastBrace + 1)
+const BEGIN = '    /* --- avatar-tab:begin (generated from avatar-tab.js — do not edit here) --- */'
+const END = '    /* --- avatar-tab:end --- */'
 
-// Drop the leading module comment block.
-body = body.replace(/^\/\*\*[\s\S]*?\*\/\n/, '')
+/** The tab source with its `export function` header removed. */
+function readTabBody() {
+  const raw = fs.readFileSync(path.join(root, 'avatar-tab.js'), 'utf8').replace(/\r\n/g, '\n')
+  const header = 'export function buildAvatarTab({ h, React, t, paths }) {'
+  const at = raw.indexOf(header)
+  if (at === -1) throw new Error('avatar-tab.js: builder header not found')
 
-// The body references `t` (the module-level default) and defines Player etc.
-const inlined = `
-    /* ------------------------------------------------------------------ *
-     * Avatar journey tab, inlined from avatar-tab.js.
-     *
-     * The browser loader only exposes require('react'), so this module cannot
-     * be imported at runtime; keep the source of truth in avatar-tab.js and
-     * regenerate this block with scripts/inline-avatar-tab.mjs.
-     * ------------------------------------------------------------------ */
-    const buildAvatarTab = ({ h, React, t, paths }) => {${body}
-    }
-`
+  // The file ends with the builder's closing brace as the last line.
+  const lastBrace = raw.lastIndexOf('\n}')
+  if (lastBrace === -1) throw new Error('avatar-tab.js: closing brace not found')
 
-const file = 'client.js'
-let s = fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n')
-const anchor = "    /* ------------------------------------------------------------------ *\n     * Copy\n"
-if (!s.includes(anchor)) { console.error('anchor missing'); process.exit(1) }
-if (s.includes('const buildAvatarTab =')) {
-  console.error('already inlined')
+  let body = raw.slice(at + header.length, lastBrace)
+  // Drop the module-level doc comment that precedes the header.
+  return body.replace(/^\s*\n/, '')
+}
+
+function buildBlock() {
+  const body = readTabBody()
+  return [
+    BEGIN,
+    '    const buildAvatarTab = ({ h, React, t, paths }) => {',
+    body.replace(/\n+$/, ''),
+    '    }',
+    END,
+  ].join('\n')
+}
+
+function readClient() {
+  return fs.readFileSync(path.join(root, 'client.js'), 'utf8').replace(/\r\n/g, '\n')
+}
+
+/** Locate the generated block, tolerating the pre-marker legacy form. */
+function locate(client) {
+  const begin = client.indexOf(BEGIN)
+  if (begin !== -1) {
+    const end = client.indexOf(END, begin)
+    if (end === -1) throw new Error('client.js: begin marker without end marker')
+    return { start: begin, stop: end + END.length }
+  }
+  // Legacy: the original inliner wrote a comment header instead of markers.
+  const legacy = client.indexOf('const buildAvatarTab = ({ h, React, t, paths }) => {')
+  if (legacy === -1) return null
+  const legacyHeader = client.lastIndexOf('    /* ---', legacy)
+  const start = legacyHeader === -1 ? legacy : legacyHeader
+  const copyAnchor = client.indexOf('* Copy', legacy)
+  if (copyAnchor === -1) throw new Error('client.js: could not delimit the legacy block')
+  const blockStart = client.lastIndexOf('    /* ---', copyAnchor)
+  if (blockStart === -1) throw new Error('client.js: could not find the Copy header')
+  return { start, stop: blockStart }
+}
+
+const checkOnly = process.argv.includes('--check')
+const client = readClient()
+const span = locate(client)
+
+if (!span) {
+  console.error('client.js: no avatar-tab block found; run without --check to create it')
   process.exit(1)
 }
-s = s.replace(anchor, inlined + '\n' + anchor)
-fs.writeFileSync(file, s, 'utf8')
-console.log('inlined buildAvatarTab')
+
+// Replace the span exactly: no extra padding, so repeated runs converge.
+const before = client.slice(0, span.start).replace(/\s+$/u, '')
+const after = client.slice(span.stop).replace(/^\s*/u, '')
+const next = before + '\n' + buildBlock() + '\n' + after
+const inSync = next === client
+
+if (checkOnly) {
+  if (inSync) {
+    console.log('avatar-tab block is in sync with avatar-tab.js')
+    process.exit(0)
+  }
+  console.error('avatar-tab block is STALE — run: node scripts/inline-avatar-tab.mjs')
+  process.exit(1)
+}
+
+if (inSync) {
+  console.log('avatar-tab block already up to date')
+} else {
+  fs.writeFileSync(path.join(root, 'client.js'), next, 'utf8')
+  console.log('avatar-tab block regenerated from avatar-tab.js')
+}

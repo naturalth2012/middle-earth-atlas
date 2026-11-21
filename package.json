@@ -1,7 +1,7 @@
 {
   "name": "@naturalth2012/middle-earth-atlas",
   "version": "1.0.0",
-  "description": "A canon-aware atlas of The Lord of the Rings: 56 characters with 205 curated relationships, an interactive relationship graph, a timeline across the Ages, places and artifacts, glossary and quotes, plot arcs and reading paths, book-vs-screen differences, and an avatar journey mode where you play a character's real decisions — explorable in a side panel and through eight agent tools.",
+  "description": "A canon-aware atlas of The Lord of the Rings: 56 characters with 205 curated relationships, an interactive relationship graph, a timeline across the Ages, places and artifacts, glossary and quotes, plot arcs and reading paths, book-vs-screen differences, and an avatar journey mode (8 characters, 25 scenes) where you play a character's real decisions — explorable in a side panel and through eight agent tools.",
   "type": "module",
   "license": "MIT",
   "author": "naturalth2012",

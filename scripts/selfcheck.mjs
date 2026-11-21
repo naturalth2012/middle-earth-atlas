@@ -18,6 +18,7 @@ const root = path.join(here, '..')
 const data = await import(new URL('../data.js', import.meta.url).href)
 const lore = await import(new URL('../lore.js', import.meta.url).href)
 const engine = await import(new URL('../engine.js', import.meta.url).href)
+const journey = await import(new URL('../journey.js', import.meta.url).href)
 
 let failures = 0
 let checks = 0
@@ -126,7 +127,106 @@ for (const c of characters) {
 }
 
 /* ------------------------------------------------------------------ *
- * 2. Engine behaviour
+ * 2b. Avatar journeys
+ * ------------------------------------------------------------------ */
+group('avatar journeys')
+
+const avatars = journey.AVATARS
+const placeIds = new Set(places.map((p) => p.id))
+const eventIds = new Set(events.map((e) => e.id))
+const avatarCharacterIds = new Set(charIds)
+
+check('avatars exist', avatars.length > 0)
+check('avatar ids unique', new Set(avatars.map((a) => a.id)).size === avatars.length)
+
+let totalScenes = 0
+let totalChoices = 0
+for (const avatar of avatars) {
+  check('avatar maps to a real character: ' + avatar.id, avatarCharacterIds.has(avatar.character), avatar.character)
+  check('avatar has tagline: ' + avatar.id, Boolean(avatar.tagline))
+  check('avatar has opening: ' + avatar.id, Boolean(avatar.opening))
+  check('avatar has scenes: ' + avatar.id, Array.isArray(avatar.scenes) && avatar.scenes.length > 0)
+
+  const sceneIds = new Set()
+  for (const scene of avatar.scenes) {
+    totalScenes++
+    check('scene id unique: ' + scene.id, !sceneIds.has(scene.id))
+    sceneIds.add(scene.id)
+    check('scene has narration: ' + scene.id, Boolean(scene.narration))
+    check('scene has stakes: ' + scene.id, Boolean(scene.stakes))
+    check('scene tier is 1-3: ' + scene.id, [1, 2, 3].includes(scene.tier))
+    if (scene.place) check('scene place exists: ' + scene.id, placeIds.has(scene.place), scene.place)
+    if (scene.event) check('scene event exists: ' + scene.id, eventIds.has(scene.event), scene.event)
+    check('scene has at least two choices: ' + scene.id, scene.choices.length >= 2)
+
+    const canonChoices = scene.choices.filter((c) => c.canon).length
+    check('scene has exactly one canon choice: ' + scene.id, canonChoices === 1, String(canonChoices))
+
+    for (const choice of scene.choices) {
+      totalChoices++
+      check('choice has label: ' + scene.id, Boolean(choice.label))
+      check('choice has result: ' + scene.id, Boolean(choice.result))
+      check('choice tone known: ' + scene.id + '/' + choice.tone, Boolean(journey.TONE_LABELS[choice.tone]), choice.tone)
+    }
+  }
+}
+
+check('total scenes counted', totalScenes > 0)
+check('total choices counted', totalChoices > 0)
+
+const list3 = engine.avatarList({ maxTier: 3 })
+const list1 = engine.avatarList({ maxTier: 1 })
+check('avatarList returns all', list3.length === avatars.length)
+check('spoiler tier 1 narrows the list', list1.length <= list3.length)
+check('every tier-1 avatar has at least one scene',
+  list1.every((a) => a.sceneCount >= 1))
+
+const frodoJourney = engine.avatarJourney('frodo')
+check('avatarJourney resolves by id', Boolean(frodoJourney))
+check('avatarJourney resolves by Chinese name', Boolean(engine.avatarJourney('弗罗多')))
+check('avatarJourney resolves by English name', Boolean(engine.avatarJourney('Frodo')))
+check('unknown avatar returns null', engine.avatarJourney('nobody-xyz-123') === null)
+
+const tier1Journey = engine.avatarJourney('frodo', { maxTier: 1 })
+check('tier filter drops later scenes', tier1Journey.scenes.length < frodoJourney.scenes.length)
+check('hidden scenes reported', tier1Journey.hiddenScenes > 0)
+check('tier filter never leaks a higher tier',
+  tier1Journey.scenes.every((s) => s.tier <= 1))
+
+// Scoring: an all-canon run must score 1.0, an all-shadow run must score 0.
+const allCanon = frodoJourney.scenes.map((s) => {
+  const choice = s.choices.find((c) => c.canon)
+  return { scene: s.id, choice: choice.index }
+})
+const perfect = engine.judgeJourney('frodo', allCanon)
+check('perfect run scores 1.0', perfect && perfect.ratio === 1, String(perfect && perfect.ratio))
+check('perfect run verdict mentions the book', perfect && /一致/.test(perfect.verdict))
+check('perfect run reports no divergence', perfect && perfect.diverged.length === 0)
+
+const allShadow = frodoJourney.scenes.map((s) => {
+  const choice = s.choices.find((c) => !c.canon)
+  return { scene: s.id, choice: choice.index }
+})
+const worst = engine.judgeJourney('frodo', allShadow)
+check('all-shadow run scores 0', worst && worst.ratio === 0, String(worst && worst.ratio))
+check('all-shadow run reports divergence', worst && worst.diverged.length === worst.total)
+
+const partial = engine.judgeJourney('frodo', [allCanon[0]])
+check('partial run counts answered only', partial && partial.answered === 1)
+check('partial run caps ratio', partial && partial.ratio <= 1)
+
+const emptyRun = engine.judgeJourney('frodo', [])
+check('empty run is handled', emptyRun && emptyRun.answered === 0)
+check('empty run ratio is 0', emptyRun && emptyRun.ratio === 0)
+
+const junkRun = engine.judgeJourney('frodo', [null, 'x', { scene: 'nope', choice: 9 }, { scene: 'fr1', choice: 0 }])
+check('malformed choices do not throw', junkRun !== null)
+check('malformed choices ignore unknown scenes', junkRun && junkRun.answered === 1)
+
+check('judgeJourney on unknown avatar returns null', engine.judgeJourney('nobody-xyz', []) === null)
+
+/* ------------------------------------------------------------------ *
+ * 3. Engine behaviour
  * ------------------------------------------------------------------ */
 group('engine behaviour')
 
@@ -285,6 +385,10 @@ if (failures === 0) {
     + events.length + ' events, '
     + quotes.length + ' quotes, '
     + glossary.length + ' glossary terms.')
+  console.log('Playable: '
+    + avatars.length + ' avatars, '
+    + totalScenes + ' scenes, '
+    + totalChoices + ' choices.')
   process.exit(0)
 } else {
   console.log(failures + ' of ' + checks + ' checks FAILED.')

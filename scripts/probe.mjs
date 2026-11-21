@@ -65,7 +65,7 @@ globalThis.fetch = async (input) => {
 
 /* --- Load the client with a probe appended ------------------------------- */
 let source = fs.readFileSync(path.join(root, 'client.js'), 'utf8').replace(/\r\n/g, '\n')
-const probe = '\n    globalThis.__MEA_PROBE__ = { OverviewTab, CharactersTab, GraphTab, TimelineTab, PlacesTab, LoreTab, PlotTab, PathsTab, DiffTab, AskTab, Drawer, AtlasPage }\n'
+const probe = '\n    globalThis.__MEA_PROBE__ = { OverviewTab, CharactersTab, GraphTab, TimelineTab, PlacesTab, LoreTab, PlotTab, PathsTab, DiffTab, AskTab, Drawer, AtlasPage, buildAvatarTab }\n'
 const anchor = '\n    return {\n      inject: [\'slots\'],'
 if (!source.includes(anchor)) {
   console.error('probe anchor not found — client.js structure changed')
@@ -128,6 +128,27 @@ for (const name of tabs) {
 
 // The page shell itself, in both its empty and data branches.
 render(React.createElement(T.AtlasPage, { t, onBack() {} }), 'AtlasPage')
+
+// The avatar journey tab, built the same way AtlasPage builds it.
+if (T.buildAvatarTab) {
+  try {
+    const AvatarTab = T.buildAvatarTab({
+      h: React.createElement,
+      React,
+      t,
+      paths: {
+        AVATARS_PATH: '/plugins/middle-earth-atlas/avatars',
+        AVATAR_PATH: '/plugins/middle-earth-atlas/avatar',
+        AVATAR_JUDGE_PATH: '/plugins/middle-earth-atlas/avatar-judge',
+      },
+    })
+    render(React.createElement(AvatarTab, { data: DATA, t }), 'AvatarTab')
+  } catch (error) {
+    errors.push('AvatarTab :: ' + error.message)
+  }
+} else {
+  errors.push('buildAvatarTab missing from client exports')
+}
 
 // Drawers for each dossier kind.
 const dossierCases = [

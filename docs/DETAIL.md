@@ -14,10 +14,15 @@
 - **入门路线**：新手、影视优先、深度考据三条导读路径。
 - **原著 vs 改编**：10 处关键差异，区分托尔金原著与影视演绎。
 - **随手问**：自然语言提问，答案来自同一套数据。
+- **化身之旅**：扮演 6 位角色之一，回到他们真正面对抉择的时刻，选出你的路，再对照托尔金实际写了什么。支持剧透等级与结束评分。
 
 ## 与对话的联动
 
-插件向对话注册了 6 个工具：`middle_earth_search`、`middle_earth_detail`、`middle_earth_relation`、`middle_earth_timeline`、`middle_earth_graph`、`middle_earth_ask`。它们与侧边栏面板读取同一套引擎，因此问「弗罗多和咕噜是什么关系」得到的答案与页面一致。
+插件向对话注册了 8 个工具：`middle_earth_search`、`middle_earth_detail`、`middle_earth_relation`、`middle_earth_timeline`、`middle_earth_graph`、`middle_earth_ask`、`middle_earth_play`、`middle_earth_judge`。它们与侧边栏面板读取同一套引擎，因此问「弗罗多和咕噜是什么关系」得到的答案与页面一致；`middle_earth_play` 还能让对话里直接开始一段化身之旅。
+
+## 化身之旅的设计取舍
+
+代入玩法没有做成开放式对话，原因是：脱离数据生成的回答无法验证，容易把原著讲错，反而破坏"深入小说情节"的初衷。因此每一幕场景、每一个选项、每一段后果都是预先校订并锚定到真实事件的。选完之后，界面对照给出原著的实际走向——**代入感不以讲错故事为代价**。
 
 ## 资料来源与标注
 
@@ -31,6 +36,8 @@
 | --- | --- |
 | `data.js` | 作品、阵营、55 位角色与关系、26 个事件、路线、改编差异 |
 | `lore.js` | 地点、宝物、术语、名句、剧情节点、旅程 |
+| `journey.js` | 化身之旅：6 位可扮演角色、19 幕场景、41 个抉择 |
+| `avatar-tab.js` | 化身之旅面板组件源码（由 `scripts/inline-avatar-tab.mjs` 内联进 client） |
 | `engine.js` | 纯查询与图算法，Host 路由与对话工具共用 |
 | `index.js` | Host 半部：同源路由与 6 个 Agent 工具 |
 | `client.js` | Client 半部：React 面板（无 JSX，仅用宿主主题变量） |
@@ -41,6 +48,7 @@
 node scripts/selfcheck.mjs    # 数据完整性、引擎行为、路由与清单
 node scripts/probe.mjs        # 无浏览器渲染全部标签页
 node scripts/probe-drawer.mjs # 渲染四类档案抽屉
+node scripts/inline-avatar-tab.mjs  # 改动 avatar-tab.js 后重新内联进 client.js
 ```
 
 ## 安装

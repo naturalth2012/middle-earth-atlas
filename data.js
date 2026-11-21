@@ -637,6 +637,20 @@ export const CHARACTERS = [
     tags: ['巧言', '背叛', '洛汗'],
   },
   {
+    id: 'imrahil', name: '伊姆拉希尔', nameEn: 'Imrahil', alias: ['多阿姆洛斯亲王'],
+    faction: 'man', factionLabel: '刚铎', kind: '配角', canon: '原著',
+    summary: '多阿姆洛斯亲王，刚铎南部的领主；帕兰诺平原之战中率骑兵驰援，是刚铎贵族里最清醒的一位。',
+    details: '发现伊欧玟尚有气息并将其救回，也是最早认出阿拉贡王者身份的人之一。电影中几乎被完全删去。',
+    fate: '战后辅佐伊力萨王，成为刚铎重臣。',
+    relations: [
+      { to: 'denethor', type: 'ally', label: '刚铎贵族同僚' },
+      { to: 'eowyn', type: 'ally', label: '在战场上救下她' },
+      { to: 'aragorn', type: 'ally', label: '最早承认新王' },
+    ],
+    works: { 'lotr-book': '刚铎领主' },
+    tags: ['多阿姆洛斯', '帕兰诺平原', '被电影删去'],
+  },
+  {
     id: 'hama', name: '哈玛', nameEn: 'Háma', alias: ['哈玛'],
     faction: 'man', factionLabel: '洛汗', kind: '配角', canon: '原著与电影',
     summary: '伊多拉斯的守门队长，忠于希优顿；在圣盔谷之战中战死。',

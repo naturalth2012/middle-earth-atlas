@@ -13,6 +13,7 @@ import {
   bundle, counts, searchCharacters, searchAll, buildGraph, neighbors,
   characterDetail, placeDetail, artifactDetail, glossaryDetail,
   relationPath, timeline, plot, journeys, ask, suggestions,
+  avatarList, avatarJourney, judgeJourney,
 } from './engine.js'
 
 const BASE = '/plugins/middle-earth-atlas'
@@ -30,6 +31,9 @@ export const TIMELINE_PATH = BASE + '/timeline'
 export const PLOT_PATH = BASE + '/plot'
 export const JOURNEYS_PATH = BASE + '/journeys'
 export const ASK_PATH = BASE + '/ask'
+export const AVATARS_PATH = BASE + '/avatars'
+export const AVATAR_PATH = BASE + '/avatar'
+export const AVATAR_JUDGE_PATH = BASE + '/avatar-judge'
 
 const textOutput = {
   schema: { type: 'object', properties: { text: { type: 'string' } }, additionalProperties: true },
@@ -84,6 +88,13 @@ function routeHandler(path, compute) {
 }
 
 const list = (value) => (value ? value.split(',').map((s) => s.trim()).filter(Boolean) : undefined)
+
+/** A spoiler ceiling from a query string: 1–3, defaulting to everything. */
+const optionalTier = (value) => {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return 3
+  return Math.max(1, Math.min(3, Math.round(n)))
+}
 
 /** @param {import('@deepseek-ai/cordis').Context} ctx */
 export function apply(ctx) {
@@ -331,6 +342,103 @@ export function apply(ctx) {
         return { text: ask((args && args.question) || '') }
       },
     }, 'middle-earth-atlas: middle_earth_ask tool')
+
+    register({
+      name: 'middle_earth_play',
+      description:
+        'Walk one avatar journey: play as a character and face the decisions they actually faced. Each scene is anchored '
+        + 'to a real timeline event and offers several choices; exactly one follows the book. Use maxTier to withhold '
+        + 'spoilers (1 = setup only, 2 = mid-plot, 3 = endings). With no name, list the playable characters.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Playable character name or id, e.g. 弗罗多 / sam / 伊欧玟. Omit to list them.' },
+          maxTier: { type: 'integer', description: 'Spoiler ceiling 1–3; omit for everything.' },
+        },
+        additionalProperties: false,
+      },
+      output: textOutput,
+      async execute(args) {
+        const maxTier = optionalTier(args && args.maxTier)
+        const name = (args && args.name) || ''
+        if (!name.trim()) {
+          const list2 = avatarList({ maxTier })
+          if (!list2.length) return { text: '这个剧透等级下没有可扮演的角色。' }
+          return {
+            text: '可扮演的角色（剧透等级 ≤' + maxTier + '）：\n'
+              + list2.map((a) => `- ${a.name}（${a.theme} · ${a.sceneCount}/${a.totalScenes} 幕）— ${a.tagline}`).join('\n')
+              + '\n\n用 middle_earth_play 加上 name 开始。',
+          }
+        }
+        const journey = avatarJourney(name, { maxTier })
+        if (!journey) return { text: '没有找到这个可扮演的角色。' }
+        const lines = [
+          `# 化身之旅：${journey.name}（${journey.nameEn}）`,
+          `${journey.factionLabel} · 主题：${journey.theme} · 难度：${journey.difficulty}`,
+          '', `> ${journey.tagline}`, '',
+          `**开场**：${journey.opening}`,
+        ]
+        if (journey.hiddenScenes > 0) {
+          lines.push('', `（剧透等级 ≤${maxTier}，另有 ${journey.hiddenScenes} 幕被隐藏。）`)
+        }
+        journey.scenes.forEach((scene, i) => {
+          lines.push('', `## 第 ${i + 1} 幕 · ${scene.title}（等级 ${scene.tier}）`)
+          if (scene.place) lines.push(`地点：${scene.place.name}（${scene.place.region}）`)
+          if (scene.event) lines.push(`对应事件：${scene.event.year} ${scene.event.title}`)
+          lines.push('', scene.narration, '', `**抉择**：${scene.stakes}`)
+          scene.choices.forEach((c) => {
+            lines.push(`- [${c.toneLabel}] ${c.label}`)
+            lines.push(`  结果：${c.result}`)
+            if (c.note) lines.push(`  注：${c.note}`)
+          })
+        })
+        return { text: lines.join('\n') }
+      },
+    }, 'middle-earth-atlas: middle_earth_play tool')
+
+    register({
+      name: 'middle_earth_judge',
+      description:
+        'Score how closely a player\'s avatar journey followed the book. Pass the character and the choices as '
+        + 'scene/choice pairs; returns the verdict, ratio, and which moments diverged from Tolkien.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Playable character name or id' },
+          choices: {
+            type: 'array',
+            description: 'Array of { scene: sceneId, choice: choiceIndex } entries',
+            items: {
+              type: 'object',
+              properties: {
+                scene: { type: 'string', description: 'Scene id, e.g. fr1' },
+                choice: { type: 'integer', description: 'Zero-based choice index' },
+              },
+              required: ['scene', 'choice'],
+            },
+          },
+        },
+        required: ['name'],
+        additionalProperties: false,
+      },
+      output: textOutput,
+      async execute(args) {
+        const result = judgeJourney((args && args.name) || '', (args && args.choices) || [])
+        if (!result) return { text: '没有找到这个可扮演的角色。' }
+        const lines = [
+          `**${result.name}** 的旅程评分：${result.verdict}`,
+          result.summary,
+          '',
+        ]
+        result.decisions.forEach((d, i) => {
+          const mark = d.followedBook ? '✓ 忠于原著' : d.chosen ? '✗ 偏离原著' : '— 未选择'
+          lines.push(`${i + 1}. ${d.sceneTitle}：${mark}`)
+          if (d.chosen) lines.push(`   你的选择：${d.chosen.label}`)
+          if (d.chosen && !d.followedBook && d.canonChoice) lines.push(`   原著是：${d.canonChoice.label}`)
+        })
+        return { text: lines.join('\n') }
+      },
+    }, 'middle-earth-atlas: middle_earth_judge tool')
   })
 
   // ---- Browser routes ----------------------------------------------------
@@ -391,5 +499,28 @@ export function apply(ctx) {
       answer: ask(p.get('q') || ''),
       suggestions: suggestions(),
     }), 'middle-earth-atlas: ask route')
+
+    register(AVATARS_PATH, (p) => ({
+      avatars: avatarList({ maxTier: optionalTier(p.get('maxTier')) }),
+    }), 'middle-earth-atlas: avatar list route')
+
+    register(AVATAR_PATH, (p) => {
+      const journey = avatarJourney(p.get('id') || '', { maxTier: optionalTier(p.get('maxTier')) })
+      return journey || { error: '没有找到这个可扮演的角色' }
+    }, 'middle-earth-atlas: avatar journey route')
+
+    // Scoring is a POST because it carries the whole choice list; GET with a
+    // compact query is supported too so the browser can link to a result.
+    register(AVATAR_JUDGE_PATH, (p) => {
+      const id = p.get('id') || ''
+      let choices = []
+      try {
+        choices = JSON.parse(p.get('choices') || '[]')
+      } catch {
+        return { error: 'choices 不是合法的 JSON' }
+      }
+      const result = judgeJourney(id, choices)
+      return result || { error: '没有找到这个可扮演的角色' }
+    }, 'middle-earth-atlas: avatar judge route')
   })
 }

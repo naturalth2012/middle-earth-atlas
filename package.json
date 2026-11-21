@@ -1,7 +1,7 @@
 {
   "name": "@naturalth2012/middle-earth-atlas",
   "version": "1.0.0",
-  "description": "A canon-aware atlas of The Lord of the Rings: 55 characters with 202 curated relationships, an interactive relationship graph, a timeline across the Ages, places and artifacts, glossary and quotes, plot arcs, reading paths, and book-vs-screen differences — explorable in a side panel and through six agent tools.",
+  "description": "A canon-aware atlas of The Lord of the Rings: 56 characters with 205 curated relationships, an interactive relationship graph, a timeline across the Ages, places and artifacts, glossary and quotes, plot arcs and reading paths, book-vs-screen differences, and an avatar journey mode where you play a character's real decisions — explorable in a side panel and through eight agent tools.",
   "type": "module",
   "license": "MIT",
   "author": "naturalth2012",
@@ -14,7 +14,8 @@
     "middle-earth",
     "knowledge-graph",
     "silmarillion",
-    "rings-of-power"
+    "rings-of-power",
+    "interactive-fiction"
   ],
   "repository": {
     "type": "git",
@@ -38,6 +39,7 @@
     "./engine": "./engine.js",
     "./data": "./data.js",
     "./lore": "./lore.js",
+    "./journey": "./journey.js",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg"
   },
@@ -47,6 +49,8 @@
     "engine.js",
     "data.js",
     "lore.js",
+    "journey.js",
+    "avatar-tab.js",
     "cordis.patch.yml",
     "locale/*.json",
     "docs/DETAIL.md",
@@ -56,7 +60,8 @@
     "LICENSE",
     "scripts/selfcheck.mjs",
     "scripts/probe.mjs",
-    "scripts/probe-drawer.mjs"
+    "scripts/probe-drawer.mjs",
+    "scripts/inline-avatar-tab.mjs"
   ],
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },

@@ -27,6 +27,238 @@ window.__ModuleLoader__.load({
     const GRAPH_PATH = BASE + '/graph'
     const PATH_PATH = BASE + '/path'
     const ASK_PATH = BASE + '/ask'
+    const AVATARS_PATH = BASE + '/avatars'
+    const AVATAR_PATH = BASE + '/avatar'
+    const AVATAR_JUDGE_PATH = BASE + '/avatar-judge'
+
+
+    /* ------------------------------------------------------------------ *
+     * Avatar journey tab, inlined from avatar-tab.js.
+     *
+     * The browser loader only exposes require('react'), so this module cannot
+     * be imported at runtime; keep the source of truth in avatar-tab.js and
+     * regenerate this block with scripts/inline-avatar-tab.mjs.
+     * ------------------------------------------------------------------ */
+    const buildAvatarTab = ({ h, React, t, paths }) => {
+  const { AVATARS_PATH, AVATAR_PATH, AVATAR_JUDGE_PATH } = paths
+
+  const getJSON = async (url) => {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error('HTTP ' + res.status)
+    return res.json()
+  }
+
+  /* ---------------------------------------------------------------- *
+   * One journey player
+   * ---------------------------------------------------------------- */
+  const Player = ({ avatar, tier, onExit }) => {
+    const [journey, setJourney] = React.useState(null)
+    const [failed, setFailed] = React.useState(false)
+    const [step, setStep] = React.useState(0)
+    const [picks, setPicks] = React.useState({})
+    const [revealed, setRevealed] = React.useState({})
+    const [judgement, setJudgement] = React.useState(null)
+
+    React.useEffect(() => {
+      let alive = true
+      setJourney(null); setFailed(false); setStep(0); setPicks({}); setRevealed({}); setJudgement(null)
+      getJSON(AVATAR_PATH + '?id=' + encodeURIComponent(avatar.id) + '&maxTier=' + tier)
+        .then((d) => { if (alive) { if (d && d.error) setFailed(true); else setJourney(d) } })
+        .catch(() => { if (alive) setFailed(true) })
+      return () => { alive = false }
+    }, [avatar.id, tier])
+
+    if (failed) {
+      return h('div', { className: 'mea-avatar-card' },
+        h('div', { className: 'mea-kicker' }, t('avatarLoadFail')),
+        h('button', { className: 'mea-btn', onClick: onExit }, t('avatarBack')))
+    }
+    if (!journey) {
+      return h('div', { className: 'mea-avatar-card mea-avatar-loading' },
+        h('div', { className: 'mea-spin' }, '💍'), h('div', null, t('loading')))
+    }
+
+    const scenes = journey.scenes
+    const scene = scenes[step]
+    const picked = picks[scene.id]
+    const showResult = revealed[scene.id]
+    const isLast = step === scenes.length - 1
+
+    const pick = (index) => {
+      if (picked !== undefined) return
+      setPicks((prev) => ({ ...prev, [scene.id]: index }))
+      setRevealed((prev) => ({ ...prev, [scene.id]: true }))
+    }
+
+    const finish = async () => {
+      const choices = scenes
+        .filter((s) => picks[s.id] !== undefined)
+        .map((s) => ({ scene: s.id, choice: picks[s.id] }))
+      try {
+        const result = await getJSON(
+          AVATAR_JUDGE_PATH + '?id=' + encodeURIComponent(journey.id)
+          + '&choices=' + encodeURIComponent(JSON.stringify(choices)))
+        setJudgement(result && !result.error ? result : null)
+      } catch {
+        setJudgement(null)
+      }
+    }
+
+    /* --- result screen --- */
+    if (judgement) {
+      const rows = judgement.decisions.map((d, i) => {
+        const mark = d.followedBook ? '✓' : d.chosen ? '✗' : '—'
+        const cls = d.followedBook ? 'mea-jd-good' : d.chosen ? 'mea-jd-bad' : 'mea-jd-none'
+        return h('div', { key: d.sceneId, className: 'mea-jd-row' },
+          h('span', { className: 'mea-jd-mark ' + cls }, mark),
+          h('div', null,
+            h('b', null, (i + 1) + '. ' + d.sceneTitle),
+            d.chosen ? h('small', null, t('avatarYourPick') + '：' + d.chosen.label) : null,
+            (d.chosen && !d.followedBook && d.canonChoice)
+              ? h('small', { className: 'mea-jd-canon' }, t('avatarCanonWas') + '：' + d.canonChoice.label)
+              : null))
+      })
+      return h('div', { className: 'mea-avatar-card' },
+        h('div', { className: 'mea-av-header' },
+          h('div', { className: 'mea-av-badge' }, journey.nameEn ? journey.nameEn.slice(0, 1) : '★'),
+          h('div', null,
+            h('h2', null, t('avatarResultTitle')),
+            h('div', { className: 'mea-kicker' }, journey.name + ' · ' + journey.theme))),
+        h('div', { className: 'mea-verdict' },
+          h('div', { className: 'mea-verdict-label' }, judgement.verdict),
+          h('div', { className: 'mea-verdict-bar' },
+            h('i', { style: { width: Math.round(judgement.ratio * 100) + '%' } })),
+          h('div', { className: 'mea-kicker' }, judgement.summary)),
+        h('div', { className: 'mea-jd-list' }, ...rows),
+        h('div', { className: 'mea-avatar-actions' },
+          h('button', {
+            className: 'mea-btn mea-primary',
+            onClick: () => { setJudgement(null); setPicks({}); setRevealed({}); setStep(0) },
+          }, t('avatarReplay')),
+          h('button', { className: 'mea-btn', onClick: onExit }, t('avatarBack'))))
+    }
+
+    /* --- scene screen --- */
+    const choices = scene.choices.map((c) => {
+      const isPicked = picked === c.index
+      const dimmed = picked !== undefined && !isPicked
+      const cls = 'mea-choice' + (isPicked ? ' mea-choice-picked' : '') + (dimmed ? ' mea-choice-dim' : '')
+        + (c.canon ? ' mea-choice-canon' : '')
+      return h('button', {
+        key: c.index,
+        className: cls,
+        onClick: () => pick(c.index),
+        disabled: picked !== undefined,
+        'aria-pressed': isPicked ? 'true' : 'false',
+      },
+        h('span', { className: 'mea-choice-label' }, c.label),
+        h('span', { className: 'mea-choice-tone' }, c.toneLabel))
+    })
+
+    let outcome = null
+    if (showResult) {
+      const chosen = scene.choices.find((c) => c.index === picked)
+      const canonChoice = scene.choices.find((c) => c.canon)
+      outcome = h('div', { className: 'mea-outcome' },
+        h('div', { className: 'mea-outcome-head' },
+          h('span', { className: 'mea-outcome-tag' }, chosen.toneLabel),
+          chosen.canon ? h('span', { className: 'mea-outcome-canon' }, t('avatarFollowedBook')) : null),
+        h('p', { className: 'mea-outcome-text' }, chosen.result),
+        chosen.note ? h('p', { className: 'mea-outcome-note' }, chosen.note) : null,
+        (!chosen.canon && canonChoice) ? h('div', { className: 'mea-canon-box' },
+          h('div', { className: 'mea-kicker' }, t('avatarCanonWas')),
+          h('div', null, canonChoice.label),
+          canonChoice.note ? h('p', { className: 'mea-outcome-note' }, canonChoice.note) : null) : null)
+    }
+
+    const progress = Math.round(((step + (showResult ? 1 : 0)) / scenes.length) * 100)
+
+    return h('div', { className: 'mea-avatar-card' },
+      h('div', { className: 'mea-av-header' },
+        h('div', { className: 'mea-av-badge' }, journey.nameEn ? journey.nameEn.slice(0, 1) : '★'),
+        h('div', { style: { flex: 1 } },
+          h('h2', null, journey.name),
+          h('div', { className: 'mea-kicker' }, journey.theme + ' · ' + journey.difficulty)),
+        h('button', { className: 'mea-btn', onClick: onExit }, t('avatarBack'))),
+      h('div', { className: 'mea-progress' },
+        h('i', { style: { width: progress + '%' } })),
+      h('div', { className: 'mea-kicker', style: { marginTop: 8 } },
+        t('avatarSceneOf', { n: step + 1, total: scenes.length })),
+      h('h3', { className: 'mea-scene-title' }, scene.title),
+      h('div', { className: 'mea-scene-meta' },
+        scene.place ? h('span', { className: 'mea-tag' }, '📍 ' + scene.place.name) : null,
+        scene.event ? h('span', { className: 'mea-tag' }, '🕰️ ' + scene.event.year + ' ' + scene.event.title) : null),
+      h('p', { className: 'mea-narration' }, scene.narration),
+      h('p', { className: 'mea-stakes' }, scene.stakes),
+      h('div', { className: 'mea-choices' }, ...choices),
+      outcome,
+      showResult ? h('div', { className: 'mea-avatar-actions' },
+        isLast
+          ? h('button', { className: 'mea-btn mea-primary', onClick: finish }, t('avatarSeeVerdict'))
+          : h('button', {
+            className: 'mea-btn mea-primary',
+            onClick: () => setStep((s) => Math.min(scenes.length - 1, s + 1)),
+          }, t('avatarNext'))) : null,
+      (journey.hiddenScenes > 0) ? h('p', { className: 'mea-kicker', style: { marginTop: 10 } },
+        t('avatarHidden', { n: journey.hiddenScenes })) : null)
+  }
+
+  /* ---------------------------------------------------------------- *
+   * The tab: avatar picker + spoiler control + player
+   * ---------------------------------------------------------------- */
+  return function AvatarJourneyTab({ data, t: tt }) {
+    const tr = tt || t
+    const [tier, setTier] = React.useState(1)
+    const [active, setActive] = React.useState(null)
+
+    if (active) {
+      return h(Player, { avatar: active, tier, onExit: () => setActive(null) })
+    }
+
+    const tierButton = (value, label) => h('button', {
+      key: value,
+      className: 'mea-chip' + (tier === value ? ' mea-on' : ''),
+      onClick: () => setTier(value),
+    }, label)
+
+    const avatars = data.avatars || []
+    const cards = avatars.map((avatar) => {
+      const blocked = avatar.sceneCount === 0
+      return h('button', {
+        key: avatar.id,
+        className: 'mea-avatar-tile' + (blocked ? ' mea-avatar-blocked' : ''),
+        disabled: blocked,
+        onClick: () => setActive(avatar),
+      },
+        h('div', { className: 'mea-av-tile-top' },
+          h('div', { className: 'mea-av-badge' },
+            avatar.nameEn ? avatar.nameEn.slice(0, 1) : '★'),
+          h('div', { style: { flex: 1, textAlign: 'left' } },
+            h('b', null, avatar.name),
+            h('small', null, avatar.factionLabel + ' · ' + avatar.difficulty))),
+        h('div', { className: 'mea-av-tagline' }, avatar.tagline),
+        h('div', { className: 'mea-av-meta' },
+          h('span', { className: 'mea-tag' }, avatar.theme),
+          h('span', { className: 'mea-tag' },
+            blocked ? tr('avatarLocked')
+              : tr('avatarScenes', { n: avatar.sceneCount, total: avatar.totalScenes }))))
+    })
+
+    return h(React.Fragment, null,
+      h('div', { className: 'mea-avatar-intro' },
+        h('h3', null, '🎭 ' + tr('avatarTitle')),
+        h('p', null, tr('avatarIntro')),
+        h('div', { className: 'mea-tier-row' },
+          h('span', { className: 'mea-kicker', style: { margin: 0 } }, tr('avatarSpoiler')),
+          tierButton(1, tr('avatarTier1')),
+          tierButton(2, tr('avatarTier2')),
+          tierButton(3, tr('avatarTier3')))),
+      avatars.length === 0
+        ? h('div', { className: 'mea-empty' }, tr('avatarNone'))
+        : h('div', { className: 'mea-avatar-grid' }, ...cards))
+  }
+
+    }
 
     /* ------------------------------------------------------------------ *
      * Copy
@@ -52,6 +284,28 @@ window.__ModuleLoader__.load({
       tabPaths: '入门路线',
       tabDiff: '原著 vs 改编',
       tabAsk: '随手问',
+      tabAvatar: '化身之旅',
+      // avatar journey
+      avatarTitle: '化身之旅 · 走进故事里',
+      avatarIntro: '选一个角色，回到他或她真正面对抉择的那一刻。你会看到自己会怎么选，也会看到托尔金实际写了什么——这正是原著最难被替代的部分。',
+      avatarSpoiler: '剧透范围',
+      avatarTier1: '只看开端',
+      avatarTier2: '含中段转折',
+      avatarTier3: '全部（含结局）',
+      avatarScenes: '{n}/{total} 幕',
+      avatarLocked: '此范围内不可玩',
+      avatarNone: '这个剧透范围下没有可扮演的角色，试试放宽范围。',
+      avatarSceneOf: '第 {n} / {total} 幕',
+      avatarNext: '继续',
+      avatarSeeVerdict: '看看结局',
+      avatarBack: '换个角色',
+      avatarReplay: '再走一次',
+      avatarResultTitle: '你的旅程评分',
+      avatarYourPick: '你的选择',
+      avatarCanonWas: '原著里是这样',
+      avatarFollowedBook: '✓ 与原著一致',
+      avatarHidden: '还有 {n} 幕因剧透范围被隐藏。',
+      avatarLoadFail: '这一段旅程没能加载出来，请返回重试。',
       // overview
       ovWelcome: '欢迎来到中土',
       ovIntro: '这不是一份资料列表，而是一张可以走进去的地图。你可以从任何一位人物出发，顺着关系走，或者按时间线把故事串起来。',
@@ -147,6 +401,27 @@ window.__ModuleLoader__.load({
       tabTimeline: 'Timeline', tabPlaces: 'Places & relics', tabLore: 'Lore & quotes',
       tabPlot: 'Plot & journeys', tabPaths: 'Start here', tabDiff: 'Book vs screen',
       tabAsk: 'Ask',
+      tabAvatar: 'Play as',
+      avatarTitle: 'Play as a character',
+      avatarIntro: 'Pick a character and return to the moment they actually faced a choice. You will see what you would do — and what Tolkien actually wrote. That gap is the point.',
+      avatarSpoiler: 'Spoiler range',
+      avatarTier1: 'Setup only',
+      avatarTier2: 'Include turns',
+      avatarTier3: 'Everything',
+      avatarScenes: '{n}/{total} scenes',
+      avatarLocked: 'Locked at this level',
+      avatarNone: 'No playable character at this spoiler level; try widening it.',
+      avatarSceneOf: 'Scene {n} of {total}',
+      avatarNext: 'Continue',
+      avatarSeeVerdict: 'See the verdict',
+      avatarBack: 'Pick another',
+      avatarReplay: 'Walk it again',
+      avatarResultTitle: 'Your journey',
+      avatarYourPick: 'You chose',
+      avatarCanonWas: 'In the book',
+      avatarFollowedBook: '✓ Follows the book',
+      avatarHidden: '{n} more scenes are hidden at this spoiler level.',
+      avatarLoadFail: 'This journey could not load; go back and retry.',
       ovWelcome: 'Welcome to Middle-earth', ovIntro: 'Not a list of facts but a map you can walk through. Start from any character and follow the relations, or follow the timeline.',
       ovStartHere: 'Start here', ovQuick: 'Quick links',
       ovCharacters: 'characters', ovRelations: 'relations', ovPlaces: 'places',
@@ -341,6 +616,60 @@ window.__ModuleLoader__.load({
         .mea-drawer-close:hover{background:var(--dsw-alias-bg-layer-2)}
         .mea-kicker{font-size:12px;color:var(--dsw-alias-label-secondary);margin:0 0 8px}
         .mea-h3sm{margin:0 0 10px;font-size:15px;font-weight:650}
+
+        .mea-avatar-intro{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+        .mea-avatar-intro h3{margin:0 0 6px;font-size:16px}
+        .mea-avatar-intro p{margin:0 0 12px;color:var(--dsw-alias-label-secondary);font-size:13px;line-height:1.7}
+        .mea-tier-row{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+        .mea-avatar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+        .mea-avatar-tile{appearance:none;text-align:left;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);border-radius:12px;padding:15px;cursor:pointer;color:var(--dsw-alias-label-primary);font-family:inherit;transition:transform .12s,border-color .12s;display:flex;flex-direction:column;gap:9px}
+        .mea-avatar-tile:hover:not(:disabled){transform:translateY(-2px);border-color:var(--dsw-alias-brand-primary)}
+        .mea-avatar-tile:disabled{opacity:.45;cursor:not-allowed}
+        .mea-av-tile-top{display:flex;align-items:center;gap:9px}
+        .mea-av-tile-top b{display:block;font-size:14.5px}
+        .mea-av-tile-top small{color:var(--dsw-alias-label-secondary);font-size:11.5px}
+        .mea-av-badge{width:32px;height:32px;flex:0 0 32px;border-radius:9px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--dsw-alias-brand-primary)}
+        .mea-av-tagline{font-size:13px;color:var(--dsw-alias-label-secondary);font-style:italic;line-height:1.6}
+        .mea-av-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:auto}
+        .mea-avatar-card{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);border-radius:13px;padding:20px 22px 24px;max-width:820px}
+        .mea-avatar-loading{display:flex;align-items:center;gap:12px;color:var(--dsw-alias-label-secondary)}
+        .mea-av-header{display:flex;align-items:center;gap:11px;margin-bottom:14px}
+        .mea-av-header h2{margin:0;font-size:19px}
+        .mea-av-header .mea-av-badge{width:40px;height:40px;flex:0 0 40px;font-size:17px;border-radius:11px}
+        .mea-progress{height:5px;border-radius:3px;background:var(--dsw-alias-bg-layer-2);overflow:hidden;margin:6px 0 4px}
+        .mea-progress i{display:block;height:100%;background:var(--dsw-alias-brand-primary);transition:width .25s}
+        .mea-scene-title{margin:6px 0 8px;font-size:17px}
+        .mea-scene-meta{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+        .mea-narration{font-size:14px;line-height:1.85;margin:0 0 12px;white-space:pre-wrap}
+        .mea-stakes{margin:0 0 14px;padding:9px 12px;border-left:3px solid var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-2);border-radius:0 8px 8px 0;font-size:13px;color:var(--dsw-alias-label-secondary)}
+        .mea-choices{display:flex;flex-direction:column;gap:9px}
+        .mea-choice{appearance:none;text-align:left;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l2);border-radius:10px;padding:12px 14px;cursor:pointer;color:var(--dsw-alias-label-primary);font-family:inherit;font-size:13.5px;line-height:1.6;transition:border-color .12s,background .12s;display:flex;flex-direction:column;gap:5px}
+        .mea-choice:hover:not(:disabled){border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-2)}
+        .mea-choice:disabled{cursor:default}
+        .mea-choice-picked{border-color:var(--dsw-alias-brand-primary);background:var(--dsw-alias-bg-layer-2)}
+        .mea-choice-dim{opacity:.42}
+        .mea-choice-label{display:block}
+        .mea-choice-tone{font-size:11px;color:var(--dsw-alias-label-secondary);letter-spacing:.3px}
+        .mea-outcome{margin-top:16px;padding:15px 16px;border-radius:11px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1)}
+        .mea-outcome-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:9px}
+        .mea-outcome-tag{font-size:11px;font-weight:700;color:var(--dsw-alias-brand-primary)}
+        .mea-outcome-canon{font-size:11px;color:var(--dsw-alias-state-success-primary);font-weight:600}
+        .mea-outcome-text{margin:0;font-size:13.5px;line-height:1.8}
+        .mea-outcome-note{margin:8px 0 0;font-size:12px;color:var(--dsw-alias-label-secondary);line-height:1.7}
+        .mea-canon-box{margin-top:13px;padding:11px 13px;border-radius:9px;background:var(--dsw-alias-bg-layer-1);border:1px dashed var(--dsw-alias-border-l2);font-size:13px}
+        .mea-avatar-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:16px}
+        .mea-verdict{padding:14px 0 4px}
+        .mea-verdict-label{font-size:20px;font-weight:650;margin-bottom:8px}
+        .mea-verdict-bar{height:8px;border-radius:4px;background:var(--dsw-alias-bg-layer-2);overflow:hidden;margin-bottom:9px}
+        .mea-verdict-bar i{display:block;height:100%;background:var(--dsw-alias-brand-primary)}
+        .mea-jd-list{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+        .mea-jd-row{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);border-radius:9px;font-size:13px}
+        .mea-jd-mark{width:18px;flex:0 0 18px;text-align:center;font-weight:700}
+        .mea-jd-good{color:var(--dsw-alias-state-success-primary)}
+        .mea-jd-bad{color:var(--dsw-alias-state-error-primary)}
+        .mea-jd-none{color:var(--dsw-alias-label-secondary)}
+        .mea-jd-row small{display:block;color:var(--dsw-alias-label-secondary);font-size:11.5px;margin-top:2px}
+        .mea-jd-row small.mea-jd-canon{color:var(--dsw-alias-brand-primary)}
       `
       document.head.appendChild(style)
       return () => {
@@ -1311,8 +1640,19 @@ window.__ModuleLoader__.load({
           h('div', { className: 'mea-spin' }, '💍'), h('div', null, t('loading')))
       }
 
+      // Built once per translator identity so the player keeps its state
+      // across parent re-renders.
+      const AvatarTabView = React.useMemo(
+        () => buildAvatarTab({
+          h, React, t,
+          paths: { AVATARS_PATH, AVATAR_PATH, AVATAR_JUDGE_PATH },
+        }),
+        [t],
+      )
+
       const tabs = [
         ['overview', '🧭 ' + t('tabOverview')],
+        ['avatar', '🎭 ' + t('tabAvatar')],
         ['characters', '👤 ' + t('tabCharacters')],
         ['graph', '🕸️ ' + t('tabGraph')],
         ['timeline', '📜 ' + t('tabTimeline')],
@@ -1337,6 +1677,7 @@ window.__ModuleLoader__.load({
               key: id, className: 'mea-tab' + (tab === id ? ' mea-active' : ''), onClick: () => setTab(id),
             }, label))),
           tab === 'overview' && h(OverviewTab, { data, t, go: setTab, open }),
+          tab === 'avatar' && h(AvatarTabView, { data, t }),
           tab === 'characters' && h(CharactersTab, { data, t, open }),
           tab === 'graph' && h(GraphTab, { data, t, open }),
           tab === 'timeline' && h(TimelineTab, { data, t }),

@@ -12,6 +12,7 @@ import {
 import {
   PLACES, PLACE_BY_ID, ARTIFACTS, ARTIFACT_BY_ID, GLOSSARY, QUOTES, PLOT, JOURNEYS,
 } from './lore.js'
+import { AVATARS, AVATAR_BY_ID, TONE_LABELS } from './journey.js'
 
 const norm = (s) => String(s == null ? '' : s).trim().toLowerCase()
 
@@ -404,6 +405,171 @@ export function journeys(options = {}) {
 }
 
 /* ------------------------------------------------------------------ *
+ * Avatar journeys — play as a character, then see what the book did
+ * ------------------------------------------------------------------ */
+
+/**
+ * List the playable avatars, honouring a spoiler ceiling.
+ * `maxTier` filters scenes; an avatar with no scenes at or below the ceiling
+ * is omitted rather than shown empty.
+ */
+export function avatarList(options = {}) {
+  const maxTier = Number(options.maxTier) || 3
+  const list = []
+  for (const avatar of AVATARS) {
+    const scenes = avatar.scenes.filter((s) => (s.tier || 3) <= maxTier)
+    if (!scenes.length) continue
+    const character = CHARACTER_BY_ID[avatar.character]
+    list.push({
+      id: avatar.id,
+      character: avatar.character,
+      name: character ? character.name : avatar.character,
+      nameEn: character ? character.nameEn : '',
+      faction: character ? character.faction : '',
+      factionLabel: character ? character.factionLabel : '',
+      tagline: avatar.tagline,
+      opening: avatar.opening,
+      theme: avatar.theme,
+      difficulty: avatar.difficulty,
+      sceneCount: scenes.length,
+      totalScenes: avatar.scenes.length,
+    })
+  }
+  return list
+}
+
+/**
+ * One avatar's full journey, filtered to a spoiler ceiling.
+ * The response is self-contained so the browser can play it without extra
+ * round trips; scene details never leak beyond the requested tier.
+ */
+export function avatarJourney(idOrName, options = {}) {
+  const maxTier = Number(options.maxTier) || 3
+  const key = norm(idOrName)
+  const avatar = AVATAR_BY_ID[key]
+    || AVATARS.find((a) => norm(a.id) === key
+      || norm(CHARACTER_BY_ID[a.character] && CHARACTER_BY_ID[a.character].name) === key
+      || norm(a.character) === key)
+    || AVATARS.find((a) => {
+      const c = CHARACTER_BY_ID[a.character]
+      return c && (norm(c.name).includes(key) || norm(c.nameEn).includes(key))
+    })
+  if (!avatar) return null
+
+  const character = CHARACTER_BY_ID[avatar.character]
+  const scenes = avatar.scenes
+    .filter((s) => (s.tier || 3) <= maxTier)
+    .map((scene) => {
+      const event = scene.event ? EVENTS.find((e) => e.id === scene.event) : null
+      const place = scene.place ? PLACE_BY_ID[scene.place] : null
+      return {
+        id: scene.id,
+        title: scene.title,
+        tier: scene.tier || 3,
+        narration: scene.narration,
+        stakes: scene.stakes,
+        event: event ? { id: event.id, title: event.title, age: event.age, year: event.year, desc: event.desc } : null,
+        place: place ? { id: place.id, name: place.name, region: place.region, type: place.type } : null,
+        choices: scene.choices.map((c, index) => ({
+          index,
+          label: c.label,
+          tone: c.tone,
+          toneLabel: TONE_LABELS[c.tone] || c.tone,
+          canon: Boolean(c.canon),
+          result: c.result,
+          note: c.note || '',
+        })),
+      }
+    })
+
+  return {
+    id: avatar.id,
+    character: avatar.character,
+    name: character ? character.name : avatar.character,
+    nameEn: character ? character.nameEn : '',
+    faction: character ? character.faction : '',
+    factionLabel: character ? character.factionLabel : '',
+    summary: character ? character.summary : '',
+    fate: character ? character.fate : '',
+    tagline: avatar.tagline,
+    opening: avatar.opening,
+    theme: avatar.theme,
+    difficulty: avatar.difficulty,
+    maxTier,
+    scenes,
+    totalScenes: avatar.scenes.length,
+    hiddenScenes: avatar.scenes.length - scenes.length,
+    toneLabels: TONE_LABELS,
+  }
+}
+
+/**
+ * Score a completed journey from the choices the player made.
+ * Deterministic and explanatory: it names how much of the path followed the
+ * book, and which moments diverged.
+ */
+export function judgeJourney(idOrName, choices = []) {
+  const journey = avatarJourney(idOrName, { maxTier: 3 })
+  if (!journey) return null
+
+  const picked = new Map()
+  if (Array.isArray(choices)) {
+    for (const entry of choices) {
+      if (!entry || typeof entry !== 'object') continue
+      const sceneId = String(entry.scene || entry.sceneId || '')
+      const choiceIndex = Number(entry.choice)
+      if (!sceneId || !Number.isInteger(choiceIndex)) continue
+      picked.set(sceneId, choiceIndex)
+    }
+  }
+
+  const decisions = []
+  let canonCount = 0
+  for (const scene of journey.scenes) {
+    const choiceIndex = picked.has(scene.id) ? picked.get(scene.id) : null
+    const choice = choiceIndex === null ? null : scene.choices[choiceIndex] || null
+    const canonChoice = scene.choices.find((c) => c.canon) || null
+    if (choice && choice.canon) canonCount++
+    decisions.push({
+      sceneId: scene.id,
+      sceneTitle: scene.title,
+      tier: scene.tier,
+      chosen: choice ? { label: choice.label, toneLabel: choice.toneLabel, canon: choice.canon } : null,
+      canonChoice: canonChoice ? { label: canonChoice.label, note: canonChoice.note } : null,
+      followedBook: Boolean(choice && choice.canon),
+    })
+  }
+
+  const answered = decisions.filter((d) => d.chosen).length
+  const total = decisions.length
+  const ratio = total ? canonCount / total : 0
+
+  let verdict
+  if (answered < total) verdict = '未完成'
+  else if (ratio === 1) verdict = '与原著完全一致'
+  else if (ratio >= 0.6) verdict = '大体忠于原著'
+  else if (ratio > 0) verdict = '走向了另一条路'
+  else verdict = '完全偏离原著'
+
+  const diverged = decisions.filter((d) => d.chosen && !d.chosen.canon)
+
+  return {
+    avatar: journey.id,
+    name: journey.name,
+    answered,
+    total,
+    canonCount,
+    ratio: Number(ratio.toFixed(2)),
+    verdict,
+    decisions,
+    diverged,
+    summary: answered === 0
+      ? '还没有做出任何选择。'
+      : `在 ${total} 个抉择中，你有 ${canonCount} 次与原著一致，${diverged.length} 次走向了别的方向。`,
+  }
+}
+
+/* ------------------------------------------------------------------ *
  * Aggregate views
  * ------------------------------------------------------------------ */
 
@@ -430,6 +596,7 @@ export function bundle() {
     quotes: QUOTES,
     plot: plot(),
     journeys: journeys(),
+    avatars: avatarList(),
     counts: counts(),
     generatedAt: new Date().toISOString(),
   }
@@ -456,6 +623,9 @@ export function counts() {
     glossary: GLOSSARY.length,
     quotes: QUOTES.length,
     journeys: JOURNEYS.length,
+    avatars: AVATARS.length,
+    avatarScenes: AVATARS.reduce((n, a) => n + a.scenes.length, 0),
+    avatarChoices: AVATARS.reduce((n, a) => n + a.scenes.reduce((m, s) => m + s.choices.length, 0), 0),
     byFaction: FACTIONS.map((f) => ({ id: f.id, name: f.name, n: factionCount[f.id] || 0, color: f.color })),
     byCanon: canonCount,
     byAge: [...new Set(EVENTS.map((e) => e.age))].map((age) => ({ age, n: EVENTS.filter((e) => e.age === age).length })),

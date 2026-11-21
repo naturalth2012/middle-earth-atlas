@@ -963,6 +963,108 @@ group('accessibility & responsive')
     /safeStorage[\s\S]{0,400}catch/.test(clientCode))
 }
 
+/* ------------------------------------------------------------------ *
+ * React hook order
+ *
+ * React identifies hooks by call order. A hook that runs only on some
+ * renders makes the count differ between passes, and React responds by
+ * throwing. The slot boundary then swallows the error, so the panel shows
+ * as a blank area with nothing obvious in the console.
+ *
+ * That bug shipped once: two useMemo calls sat after the `if (!data) return`
+ * guards. The rule is now enforced statically.
+ * ------------------------------------------------------------------ */
+group('react hook order')
+
+{
+  const clientCode = fs.readFileSync(path.join(root, 'client.js'), 'utf8').replace(/\r\n/g, '\n')
+
+  const componentStarts = [...clientCode.matchAll(/^\s*const ([A-Z][\w]*) = \([^)]*\) => \{$/gm)]
+  check('components are discoverable', componentStarts.length > 10, String(componentStarts.length))
+
+  /**
+   * Return positions that sit at the component's own body level (brace depth 1).
+   * A `return` inside a useEffect cleanup or a map callback lives deeper and is
+   * legal, which is what a line-oriented regex got wrong.
+   */
+  const topLevelReturns = (body) => {
+    const out = []
+    let depth = 0
+    let i = 0
+    while (i < body.length) {
+      const ch = body[i]
+      if (ch === '{') depth++
+      else if (ch === '}') depth--
+      else if (depth === 1 && body.startsWith('return ', i)) {
+        // Ignore `return` that is part of a larger identifier.
+        const prev = body[i - 1]
+        if (prev !== undefined && /[\w$.]/.test(prev)) { i++; continue }
+        out.push(i)
+      }
+      i++
+    }
+    return out
+  }
+
+  let offenders = 0
+  for (let i = 0; i < componentStarts.length; i++) {
+    const start = componentStarts[i].index
+    // Match braces from the component's opening `{` to its real end, so a
+    // short component cannot absorb the one after it.
+    const openAt = clientCode.indexOf('{', start)
+    let depth = 0
+    let end = clientCode.length
+    for (let k = openAt; k < clientCode.length; k++) {
+      if (clientCode[k] === '{') depth++
+      else if (clientCode[k] === '}') {
+        depth--
+        if (depth === 0) { end = k + 1; break }
+      }
+    }
+    const body = clientCode.slice(start, end)
+    const name = componentStarts[i][1]
+
+    const hookPositions = [...body.matchAll(/React\.use(State|Effect|Memo|Ref|Reducer|Callback)/g)].map((m) => m.index)
+    // A nested hook helper (function useX) keeps its own hook order; exclude it.
+    const helperRanges = [...body.matchAll(/function use[A-Z][\w]*\([^)]*\) \{/g)].map((m) => {
+      const from = m.index
+      const open = body.indexOf('{', from)
+      let d = 0
+      for (let k = open; k < body.length; k++) {
+        if (body[k] === '{') d++
+        else if (body[k] === '}') { d--; if (d === 0) return [from, k] }
+      }
+      return [from, body.length]
+    })
+    const inHelper = (pos) => helperRanges.some(([f, t]) => pos >= f && pos <= t)
+    const componentHooks = hookPositions.filter((p) => !inHelper(p))
+    if (!hookPositions.length) continue
+
+    const returns = topLevelReturns(body)
+    if (!returns.length) continue
+
+    const firstReturn = returns[0]
+    const lateHooks = componentHooks.filter((h) => h > firstReturn)
+    if (lateHooks.length) {
+      offenders++
+      check('no hook after an early return in ' + name, false, lateHooks.length + ' hook(s)')
+    }
+  }
+  check('hook order is stable in every component', offenders === 0, String(offenders))
+
+  const atlasStart = clientCode.indexOf('const AtlasPage = ')
+  if (atlasStart !== -1) {
+    const body = clientCode.slice(atlasStart, atlasStart + 5000)
+    const firstGuard = body.search(/if \((error|!data)\)/)
+    const storageHook = body.indexOf('React.useMemo(() => buildAvatarStorage()')
+    const tabHook = body.indexOf('buildAvatarTab({')
+    check('AtlasPage: storage hook precedes the data guards',
+      storageHook !== -1 && (firstGuard === -1 || storageHook < firstGuard))
+    check('AtlasPage: tab builder precedes the data guards',
+      tabHook !== -1 && (firstGuard === -1 || tabHook < firstGuard))
+  }
+}
+
 group('manifest')
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'))

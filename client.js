@@ -2084,6 +2084,18 @@ window.__ModuleLoader__.load({
       }
       React.useEffect(load, [])
 
+      // Built once per translator identity so the player keeps its state
+      // across parent re-renders.
+      const avatarStorage = React.useMemo(() => buildAvatarStorage(), [])
+      const AvatarTabView = React.useMemo(
+        () => buildAvatarTab({
+          h, React, t,
+          paths: { AVATARS_PATH, AVATAR_PATH, AVATAR_JUDGE_PATH },
+          storage: avatarStorage,
+        }),
+        [t],
+      )
+
       const open = (kind, id) => setDrawer({ kind, id })
 
       if (error) {
@@ -2097,18 +2109,6 @@ window.__ModuleLoader__.load({
         return h('div', { className: 'mea-loading' },
           h('div', { className: 'mea-spin' }, '💍'), h('div', null, t('loading')))
       }
-
-      // Built once per translator identity so the player keeps its state
-      // across parent re-renders.
-      const avatarStorage = React.useMemo(() => buildAvatarStorage(), [])
-      const AvatarTabView = React.useMemo(
-        () => buildAvatarTab({
-          h, React, t,
-          paths: { AVATARS_PATH, AVATAR_PATH, AVATAR_JUDGE_PATH },
-          storage: avatarStorage,
-        }),
-        [t],
-      )
 
       const tabs = [
         ['overview', '🧭 ' + t('tabOverview')],

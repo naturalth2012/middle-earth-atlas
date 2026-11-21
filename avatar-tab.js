@@ -20,6 +20,35 @@ export function buildAvatarTab({ h, React, t, paths, storage }) {
     rememberedTier: () => null,
   }
 
+  /**
+   * The atmosphere layer: an optional, collapsed sensory note per scene.
+   *
+   * Native <details> gives keyboard support and screen-reader semantics for
+   * free. It is collapsed by default so it never competes with the decision.
+   */
+  const renderAtmosphere = (scene, tr) => {
+    const a = scene && scene.atmosphere
+    if (!a) return null
+    const rows = [
+      ['sight', '👁', tr('atmoSight')],
+      ['sound', '👂', tr('atmoSound')],
+      ['touch', '✋', tr('atmoTouch')],
+      ['smell', '👃', tr('atmoSmell')],
+    ]
+      .filter(([key]) => a[key])
+      .map(([key, icon, label]) => h('div', { key, className: 'mea-atmo-row' },
+        h('span', { className: 'mea-atmo-icon', 'aria-hidden': 'true' }, icon),
+        h('span', { className: 'mea-atmo-label' }, label),
+        h('span', { className: 'mea-atmo-text' }, a[key])))
+
+    return h('details', { className: 'mea-atmosphere' },
+      h('summary', null, tr('atmoOpen')),
+      ...rows,
+      scene.atmosphereNote
+        ? h('p', { className: 'mea-atmo-note' }, scene.atmosphereNote)
+        : null)
+  }
+
   const getJSON = async (url) => {
     const res = await fetch(url)
     if (!res.ok) throw new Error('HTTP ' + res.status)
@@ -200,6 +229,7 @@ export function buildAvatarTab({ h, React, t, paths, storage }) {
         scene.place ? h('span', { className: 'mea-tag' }, '📍 ' + scene.place.name) : null,
         scene.event ? h('span', { className: 'mea-tag' }, '🕰️ ' + scene.event.year + ' ' + scene.event.title) : null),
       h('p', { className: 'mea-narration' }, scene.narration),
+      renderAtmosphere(scene, t),
       h('p', { className: 'mea-stakes' }, scene.stakes),
       h('div', { className: 'mea-choices', role: 'group', 'aria-label': t('avatarChoices') }, ...choices),
       outcome,

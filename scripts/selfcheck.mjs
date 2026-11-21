@@ -557,6 +557,87 @@ group('avatar persistence')
 }
 
 /* ------------------------------------------------------------------ *
+ * Atmosphere layer
+ *
+ * Each scene may carry an optional sensory note. It is a reading aid, so it
+ * must never change scoring, never leak into the avatar list, and must stay
+ * short enough not to compete with the narration.
+ * ------------------------------------------------------------------ */
+group('atmosphere layer')
+
+{
+  const allScenes = journey.AVATARS.flatMap((a) => a.scenes.map((sc) => ({ avatar: a.id, scene: sc })))
+  const withAtmo = allScenes.filter((x) => x.scene.atmosphere)
+  const senses = ['sight', 'sound', 'touch', 'smell']
+
+  check('every scene carries an atmosphere note',
+    withAtmo.length === allScenes.length,
+    withAtmo.length + '/' + allScenes.length)
+
+  for (const { scene } of withAtmo) {
+    const a = scene.atmosphere
+    check('atmosphere is an object: ' + scene.id, a && typeof a === 'object' && !Array.isArray(a))
+    check('atmosphere has sight: ' + scene.id, Boolean(a.sight))
+    check('atmosphere has sound: ' + scene.id, Boolean(a.sound))
+
+    // Only known senses, so a typo cannot silently add an unused field.
+    for (const key of Object.keys(a)) {
+      check('known sense key: ' + scene.id + '.' + key, senses.includes(key), key)
+    }
+
+    // Concrete detail, not a bare adjective: a minimum length is a rough proxy.
+    for (const key of senses) {
+      if (!a[key]) continue
+      check('sense text is substantive: ' + scene.id + '.' + key, a[key].length >= 5, String(a[key].length))
+      check('sense text is not bloated: ' + scene.id + '.' + key, a[key].length <= 40, String(a[key].length))
+    }
+
+    const total = senses.reduce((n, k) => n + (a[k] ? a[k].length : 0), 0)
+    check('atmosphere total stays under the narration: ' + scene.id, total <= 110, String(total))
+  }
+
+  // The avatar list must stay light: no atmosphere in list payloads.
+  const list = engine.avatarList({ maxTier: 3 })
+  check('avatarList omits atmosphere', list.every((a) => !('atmosphere' in a)))
+  check('avatarList has no scenes payload', list.every((a) => !('scenes' in a)))
+
+  // Journey payload must carry it.
+  const one = engine.avatarJourney('frodo')
+  const withScene = one.scenes.find((sc) => sc.atmosphere)
+  check('avatarJourney carries atmosphere', Boolean(withScene))
+  check('journey atmosphere has sight', Boolean(withScene && withScene.atmosphere.sight))
+
+  // Regression: the layer must not move the score.
+  const frodoFull = engine.avatarJourney('frodo')
+  const canonRun = frodoFull.scenes.map((sc) => ({
+    scene: sc.id,
+    choice: sc.choices.find((c) => c.canon).index,
+  }))
+  const perfect = engine.judgeJourney('frodo', canonRun)
+  check('atmosphere does not disturb the perfect score', perfect && perfect.ratio === 1, String(perfect && perfect.ratio))
+  check('atmosphere does not add divergence', perfect && perfect.diverged.length === 0)
+
+  const shadowRun = frodoFull.scenes.map((sc) => ({
+    scene: sc.id,
+    choice: sc.choices.find((c) => !c.canon).index,
+  }))
+  const zero = engine.judgeJourney('frodo', shadowRun)
+  check('atmosphere does not disturb the zero score', zero && zero.ratio === 0, String(zero && zero.ratio))
+
+  // The UI must render a native details element with a summary, not a div.
+  const tabCode = fs.readFileSync(path.join(root, 'avatar-tab.js'), 'utf8').replace(/\r\n/g, '\n')
+  check('atmosphere renders as a details element', tabCode.includes("h('details'"))
+  check('atmosphere has a summary', tabCode.includes("h('summary'"))
+  check('atmosphere block is collapsed by default', !/h\('details',\s*\{[^}]*open:\s*true/.test(tabCode))
+
+  const clientCode = fs.readFileSync(path.join(root, 'client.js'), 'utf8').replace(/\r\n/g, '\n')
+  check('details marker is styled away', clientCode.includes('::-webkit-details-marker'))
+  check('summary keeps a visible focus ring',
+    /summary:focus-visible[\s\S]{0,120}outline:/.test(clientCode))
+  check('atmosphere copy is localised', clientCode.includes('atmoOpen'))
+}
+
+/* ------------------------------------------------------------------ *
  * Accessibility & responsive layout
  *
  * CSS fails silently: a mistyped selector simply never applies. These checks

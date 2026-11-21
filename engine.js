@@ -469,6 +469,7 @@ export function avatarJourney(idOrName, options = {}) {
         tier: scene.tier || 3,
         narration: scene.narration,
         stakes: scene.stakes,
+        atmosphere: scene.atmosphere || null,
         event: event ? { id: event.id, title: event.title, age: event.age, year: event.year, desc: event.desc } : null,
         place: place ? { id: place.id, name: place.name, region: place.region, type: place.type } : null,
         choices: scene.choices.map((c, index) => ({

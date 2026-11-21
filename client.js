@@ -43,6 +43,35 @@ window.__ModuleLoader__.load({
     rememberedTier: () => null,
   }
 
+  /**
+   * The atmosphere layer: an optional, collapsed sensory note per scene.
+   *
+   * Native <details> gives keyboard support and screen-reader semantics for
+   * free. It is collapsed by default so it never competes with the decision.
+   */
+  const renderAtmosphere = (scene, tr) => {
+    const a = scene && scene.atmosphere
+    if (!a) return null
+    const rows = [
+      ['sight', '👁', tr('atmoSight')],
+      ['sound', '👂', tr('atmoSound')],
+      ['touch', '✋', tr('atmoTouch')],
+      ['smell', '👃', tr('atmoSmell')],
+    ]
+      .filter(([key]) => a[key])
+      .map(([key, icon, label]) => h('div', { key, className: 'mea-atmo-row' },
+        h('span', { className: 'mea-atmo-icon', 'aria-hidden': 'true' }, icon),
+        h('span', { className: 'mea-atmo-label' }, label),
+        h('span', { className: 'mea-atmo-text' }, a[key])))
+
+    return h('details', { className: 'mea-atmosphere' },
+      h('summary', null, tr('atmoOpen')),
+      ...rows,
+      scene.atmosphereNote
+        ? h('p', { className: 'mea-atmo-note' }, scene.atmosphereNote)
+        : null)
+  }
+
   const getJSON = async (url) => {
     const res = await fetch(url)
     if (!res.ok) throw new Error('HTTP ' + res.status)
@@ -223,6 +252,7 @@ window.__ModuleLoader__.load({
         scene.place ? h('span', { className: 'mea-tag' }, '📍 ' + scene.place.name) : null,
         scene.event ? h('span', { className: 'mea-tag' }, '🕰️ ' + scene.event.year + ' ' + scene.event.title) : null),
       h('p', { className: 'mea-narration' }, scene.narration),
+      renderAtmosphere(scene, t),
       h('p', { className: 'mea-stakes' }, scene.stakes),
       h('div', { className: 'mea-choices', role: 'group', 'aria-label': t('avatarChoices') }, ...choices),
       outcome,
@@ -462,6 +492,11 @@ window.__ModuleLoader__.load({
       avatarProgress: '旅程进度',
       avatarScore: '与原著的一致程度',
       avatarChoices: '这一幕的选项',
+      atmoOpen: '细看这一幕',
+      atmoSight: '看见',
+      atmoSound: '听见',
+      atmoTouch: '触到',
+      atmoSmell: '闻到',
       // overview
       ovWelcome: '欢迎来到中土',
       ovIntro: '这不是一份资料列表，而是一张可以走进去的地图。你可以从任何一位人物出发，顺着关系走，或者按时间线把故事串起来。',
@@ -581,6 +616,11 @@ window.__ModuleLoader__.load({
       avatarProgress: 'Journey progress',
       avatarScore: 'How closely you followed the book',
       avatarChoices: 'Choices for this scene',
+      atmoOpen: 'Look closer',
+      atmoSight: 'Sight',
+      atmoSound: 'Sound',
+      atmoTouch: 'Touch',
+      atmoSmell: 'Smell',
       ovWelcome: 'Welcome to Middle-earth', ovIntro: 'Not a list of facts but a map you can walk through. Start from any character and follow the relations, or follow the timeline.',
       ovStartHere: 'Start here', ovQuick: 'Quick links',
       ovCharacters: 'characters', ovRelations: 'relations', ovPlaces: 'places',
@@ -790,6 +830,22 @@ window.__ModuleLoader__.load({
         .mea-av-badge{width:32px;height:32px;flex:0 0 32px;border-radius:9px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--dsw-alias-brand-primary)}
         .mea-av-tagline{font-size:13px;color:var(--dsw-alias-label-secondary);font-style:italic;line-height:1.6}
         .mea-av-voice{font-size:12px;color:var(--dsw-alias-brand-primary);opacity:.85;line-height:1.5}
+
+        /* Atmosphere: a collapsed sensory note. The native marker is replaced
+           with one that matches the theme, and the summary keeps its built-in
+           keyboard and screen-reader behaviour. */
+        .mea-atmosphere{margin:0 0 12px;background:var(--dsw-alias-bg-base);border:1px solid var(--dsw-alias-border-l1);border-radius:10px;padding:0 13px}
+        .mea-atmosphere[open]{padding-bottom:11px}
+        .mea-atmosphere summary{cursor:pointer;list-style:none;padding:10px 0;font-size:12.5px;color:var(--dsw-alias-brand-primary);user-select:none}
+        .mea-atmosphere summary::-webkit-details-marker{display:none}
+        .mea-atmosphere summary::before{content:'▸';display:inline-block;margin-right:7px;transition:transform .15s}
+        .mea-atmosphere[open] summary::before{transform:rotate(90deg)}
+        .mea-atmosphere summary:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:3px;border-radius:6px}
+        .mea-atmo-row{display:flex;gap:9px;align-items:flex-start;margin:7px 0;font-size:13px;line-height:1.75}
+        .mea-atmo-icon{flex:0 0 18px;text-align:center;opacity:.7;font-size:12px}
+        .mea-atmo-label{flex:0 0 34px;color:var(--dsw-alias-label-secondary);font-size:11.5px;padding-top:3px}
+        .mea-atmo-text{color:var(--dsw-alias-label-primary)}
+        .mea-atmo-note{margin:9px 0 0;font-size:11.5px;color:var(--dsw-alias-label-secondary);font-style:italic}
         .mea-av-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:auto}
         .mea-avatar-card{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);border-radius:13px;padding:20px 22px 24px;max-width:820px}
         .mea-avatar-loading{display:flex;align-items:center;gap:12px;color:var(--dsw-alias-label-secondary)}

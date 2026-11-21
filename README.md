@@ -83,6 +83,17 @@
 
 由于本次构建环境的联网检索不可用，数据集基于广为人知的作品常识人工整理，未做在线逐条核对；细节请以原著与官方作品为准。
 
+## 文档导航
+
+| 文档 | 内容 |
+| --- | --- |
+| [docs/AUDIT.md](docs/AUDIT.md) | 整体审核报告：发现的问题与优先级建议 |
+| [docs/ROADMAP.md](docs/ROADMAP.md) | 扩展路线图与执行结果 |
+| [docs/PLAN-P0.md](docs/PLAN-P0.md) | 持久化 / 响应式 / 无障碍的方案与自查 |
+| [docs/PLAN-ATMOSPHERE.md](docs/PLAN-ATMOSPHERE.md) | 氛围层的方案与自查 |
+| [docs/PUBLISHING.md](docs/PUBLISHING.md) | 发布到 GitHub / npm / DSH 市场的步骤 |
+| [docs/DETAIL.md](docs/DETAIL.md) | 插件详情页文档 |
+
 ## 开发
 
 ```bash

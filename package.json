@@ -42,7 +42,8 @@
     "./journey": "./journey.js",
     "./locale/*.json": "./locale/*.json",
     "./icon": "./icon.svg",
-    "./storage": "./storage.js"
+    "./storage": "./storage.js",
+    "./validate-source": "./validate-source.js"
   },
   "files": [
     "index.js",
@@ -64,7 +65,12 @@
     "scripts/probe-drawer.mjs",
     "scripts/inline-avatar-tab.mjs",
     "storage.js",
-    "scripts/probe-storage.mjs"
+    "scripts/probe-storage.mjs",
+    "validate-source.js",
+    "docs/AUDIT.md",
+    "docs/PLAN-ATMOSPHERE.md",
+    "docs/PLAN-P0.md",
+    "docs/ROADMAP.md"
   ],
   "dsh": {
     "bundle": {

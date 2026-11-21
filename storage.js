@@ -1,3 +1,4 @@
+import { compileValidator } from './validate-source.js'
 /**
  * Middle-earth Atlas — avatar journey snapshot storage.
  *
@@ -55,53 +56,24 @@ export function buildSnapshot(state) {
  * @param {unknown} raw parsed JSON from storage
  * @param {{ id: string, scenes: Array<{ id: string, choices: unknown[] }> }} journey
  */
+const validate = compileValidator()
+
+/**
+ * Validate a raw snapshot against the journey currently loaded.
+ *
+ * The rules themselves live in `validate-source.js` so the browser adapter
+ * runs byte-identical logic rather than a second hand-written copy.
+ *
+ * Returns null when nothing usable survives, so the caller starts fresh rather
+ * than rendering a half-restored journey.
+ *
+ * @param {unknown} raw parsed JSON from storage
+ * @param {{ id: string, scenes: Array<{ id: string, choices: unknown[] }> }} journey
+ */
 export function validateSnapshot(raw, journey) {
-  if (!raw || typeof raw !== 'object') return null
-  if (raw.v !== SNAPSHOT_VERSION) return null
-  if (!journey || !Array.isArray(journey.scenes) || journey.scenes.length === 0) return null
-
-  const byId = new Map()
-  for (const scene of journey.scenes) {
-    if (scene && typeof scene.id === 'string') byId.set(scene.id, scene)
-  }
-
-  const picks = {}
-  const rawPicks = raw.picks && typeof raw.picks === 'object' ? raw.picks : {}
-  for (const [sceneId, index] of Object.entries(rawPicks)) {
-    const scene = byId.get(sceneId)
-    if (!scene) continue
-    if (!Number.isInteger(index)) continue
-    const choiceCount = Array.isArray(scene.choices) ? scene.choices.length : 0
-    if (index < 0 || index >= choiceCount) continue
-    picks[sceneId] = index
-  }
-
-  const sceneCount = journey.scenes.length
-  let step = Number.isInteger(raw.step) ? raw.step : 0
-  if (step < 0) step = 0
-  if (step >= MAX_STEP_GUARD) step = 0
-  if (step > sceneCount - 1) step = sceneCount - 1
-
-  // Nothing usable: let the caller start from the beginning.
-  if (Object.keys(picks).length === 0 && step === 0) return null
-
-  const tier = [1, 2, 3].includes(raw.tier) ? raw.tier : 1
-  return { picks, step, tier }
+  return validate(raw, journey, SNAPSHOT_VERSION)
 }
 
-/** A store backed by localStorage, degrading to a no-op when unavailable. */
-export function browserStore() {
-  try {
-    const probe = '__mea_probe__'
-    globalThis.localStorage.setItem(probe, '1')
-    globalThis.localStorage.removeItem(probe)
-    return globalThis.localStorage
-  } catch {
-    // Private mode, disabled storage, or a quota of zero: stay silent and run
-    // without persistence rather than degrade the journey.
-    return null
-  }
-}
 
 /** Read and validate. Returns null on any failure. */
 export function loadSnapshot(store, avatarId, journey) {

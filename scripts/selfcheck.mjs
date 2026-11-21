@@ -638,6 +638,62 @@ group('atmosphere layer')
 }
 
 /* ------------------------------------------------------------------ *
+ * Storage rule parity
+ *
+ * The snapshot rules run twice: on the Host (compiled from validate-source.js)
+ * and in the browser (the same string, compiled in client.js). A hand-written
+ * second copy used to drift from the first. These checks pin the contract:
+ * one source string, embedded verbatim, and identical behaviour on both sides.
+ * ------------------------------------------------------------------ */
+group('storage rule parity')
+
+{
+  const sourceFile = fs.readFileSync(path.join(root, 'validate-source.js'), 'utf8').replace(/\r\n/g, '\n')
+  const m = sourceFile.match(/export const VALIDATE_SOURCE = `([\s\S]*?)`/)
+  check('validate-source.js exposes VALIDATE_SOURCE', Boolean(m))
+
+  if (m) {
+    const rules = m[1]
+    const clientCode = fs.readFileSync(path.join(root, 'client.js'), 'utf8').replace(/\r\n/g, '\n')
+    check('client.js embeds the shared rules verbatim', clientCode.includes(rules))
+
+    // The shape of the rules is what matters: these are the five decisions a
+    // snapshot validator must make. Losing any of them is a silent regression.
+    const required = [
+      ['version gate', 'raw.v !== version'],
+      ['unknown scene dropped', 'if (!scene) continue'],
+      ['choice bounds', 'index >= count'],
+      ['negative step clamped', 'if (step < 0) step = 0'],
+      ['oversized step clamped', 'step = sceneCount - 1'],
+      ['tier whitelist', '[1, 2, 3].includes(raw.tier)'],
+      ['empty result rejected', 'Object.keys(picks).length === 0 && step === 0'],
+    ]
+    for (const [name, needle] of required) {
+      check('shared rules keep: ' + name, rules.includes(needle), needle)
+    }
+
+    // Behavioural parity on a hostile input, compiled both ways.
+    const hostValidate = storage.validateSnapshot
+    const browserValidate = new Function('return ' + rules)()
+    const frodo = engine.avatarJourney('frodo')
+    const cases = [
+      null,
+      { v: 999, picks: {}, step: 0 },
+      { v: 1, picks: { bogus: 3 }, step: 99, tier: 9 },
+      { v: 1, picks: { [frodo.scenes[0].id]: 0 }, step: 1, tier: 2 },
+      { v: 1, picks: { [frodo.scenes[0].id]: frodo.scenes[0].choices.length + 2 }, step: 0, tier: 1 },
+    ]
+    for (const [i, input] of cases.entries()) {
+      const a = hostValidate(input, frodo)
+      const b = browserValidate(input, frodo, 1)
+      check('host and browser agree on case ' + i,
+        JSON.stringify(a) === JSON.stringify(b),
+        JSON.stringify(a) + ' vs ' + JSON.stringify(b))
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ *
  * Accessibility & responsive layout
  *
  * CSS fails silently: a mistyped selector simply never applies. These checks

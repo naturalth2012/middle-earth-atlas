@@ -341,6 +341,43 @@ window.__ModuleLoader__.load({
      * Kept outside the generated avatar-tab block so re-inlining cannot remove
      * it. Every access is wrapped: a storage failure must never break a journey.
      * ------------------------------------------------------------------ */
+    // Snapshot validation rules, identical to validate-source.js. Kept as a
+    // source string so the browser compiles the same logic the Host tests
+    // exercise, instead of a second hand-written copy that could drift.
+    const AVATAR_VALIDATE_SOURCE = `(raw, journey, version) => {
+  if (!raw || typeof raw !== 'object') return null
+  if (raw.v !== version) return null
+  if (!journey || !Array.isArray(journey.scenes) || journey.scenes.length === 0) return null
+
+  const byId = {}
+  for (const scene of journey.scenes) {
+    if (scene && typeof scene.id === 'string') byId[scene.id] = scene
+  }
+
+  const picks = {}
+  const source = raw.picks && typeof raw.picks === 'object' ? raw.picks : {}
+  for (const sceneId of Object.keys(source)) {
+    const scene = byId[sceneId]
+    if (!scene) continue
+    const index = source[sceneId]
+    if (!Number.isInteger(index)) continue
+    const count = Array.isArray(scene.choices) ? scene.choices.length : 0
+    if (index < 0 || index >= count) continue
+    picks[sceneId] = index
+  }
+
+  let step = Number.isInteger(raw.step) ? raw.step : 0
+  const sceneCount = journey.scenes.length
+  if (step < 0) step = 0
+  if (step > sceneCount - 1) step = sceneCount - 1
+
+  if (Object.keys(picks).length === 0 && step === 0) return null
+
+  const tier = [1, 2, 3].includes(raw.tier) ? raw.tier : 1
+  return { picks, step, tier }
+}`
+    const validateSnapshotShared = new Function('return ' + AVATAR_VALIDATE_SOURCE)()
+
     const SNAPSHOT_VERSION = 1
     const SNAPSHOT_PREFIX = 'mea:avatar:v' + SNAPSHOT_VERSION + ':'
     const TIER_PREFIX = 'mea:avatar:tier:'
@@ -376,37 +413,11 @@ window.__ModuleLoader__.load({
         /** Validate a stored snapshot against the journey just loaded. */
         restore(avatarId, journey) {
           const raw = read(SNAPSHOT_PREFIX + avatarId)
-          if (!raw || !journey || !Array.isArray(journey.scenes)) return null
+          if (!raw) return null
           let parsed
           try { parsed = JSON.parse(raw) } catch { return null }
-          if (!parsed || typeof parsed !== 'object') return null
-          if (parsed.v !== SNAPSHOT_VERSION) return null
-
-          const byId = {}
-          for (const scene of journey.scenes) {
-            if (scene && typeof scene.id === 'string') byId[scene.id] = scene
-          }
-          const picks = {}
-          const rawPicks = parsed.picks && typeof parsed.picks === 'object' ? parsed.picks : {}
-          for (const sceneId of Object.keys(rawPicks)) {
-            const scene = byId[sceneId]
-            if (!scene) continue
-            const index = rawPicks[sceneId]
-            if (!Number.isInteger(index)) continue
-            const count = Array.isArray(scene.choices) ? scene.choices.length : 0
-            if (index < 0 || index >= count) continue
-            picks[sceneId] = index
-          }
-
-          const sceneCount = journey.scenes.length
-          let step = Number.isInteger(parsed.step) ? parsed.step : 0
-          if (step < 0) step = 0
-          if (step > sceneCount - 1) step = sceneCount - 1
-
-          if (Object.keys(picks).length === 0 && step === 0) return null
-
-          const tier = [1, 2, 3].includes(parsed.tier) ? parsed.tier : 1
-          return { picks, step, tier }
+          // Same rules the Host tests: one source, two executions.
+          return validateSnapshotShared(parsed, journey, SNAPSHOT_VERSION)
         },
 
         /** Persist the current decisions. Never throws. */

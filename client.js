@@ -31,8 +31,17 @@ window.__ModuleLoader__.load({
     const AVATAR_PATH = BASE + '/avatar'
     const AVATAR_JUDGE_PATH = BASE + '/avatar-judge'
     /* --- avatar-tab:begin (generated from avatar-tab.js — do not edit here) --- */
-    const buildAvatarTab = ({ h, React, t, paths }) => {
+    const buildAvatarTab = ({ h, React, t, paths, storage }) => {
   const { AVATARS_PATH, AVATAR_PATH, AVATAR_JUDGE_PATH } = paths
+
+  // The storage adapter is injected; when the host cannot persist (private
+  // mode, disabled storage) it is a null-safe no-op and the journey still runs.
+  const store = storage || {
+    restore: () => null,
+    persist: () => false,
+    clear: () => false,
+    rememberedTier: () => null,
+  }
 
   const getJSON = async (url) => {
     const res = await fetch(url)
@@ -55,7 +64,23 @@ window.__ModuleLoader__.load({
       let alive = true
       setJourney(null); setFailed(false); setStep(0); setPicks({}); setRevealed({}); setJudgement(null)
       getJSON(AVATAR_PATH + '?id=' + encodeURIComponent(avatar.id) + '&maxTier=' + tier)
-        .then((d) => { if (alive) { if (d && d.error) setFailed(true); else setJourney(d) } })
+        .then((d) => {
+          if (!alive) return
+          if (!d || d.error) { setFailed(true); return }
+          // Restore a previous session before the first paint of the journey.
+          // The snapshot is validated against the payload we just received, so
+          // a save from an older dataset is trimmed rather than trusted.
+          const saved = store.restore(avatar.id, d)
+          if (saved) {
+            setPicks(saved.picks)
+            setStep(saved.step)
+            // Mark restored scenes as revealed so the outcome stays visible.
+            const revealedNow = {}
+            for (const sceneId of Object.keys(saved.picks)) revealedNow[sceneId] = true
+            setRevealed(revealedNow)
+          }
+          setJourney(d)
+        })
         .catch(() => { if (alive) setFailed(true) })
       return () => { alive = false }
     }, [avatar.id, tier])
@@ -67,7 +92,7 @@ window.__ModuleLoader__.load({
     }
     if (!journey) {
       return h('div', { className: 'mea-avatar-card mea-avatar-loading' },
-        h('div', { className: 'mea-spin' }, '💍'), h('div', null, t('loading')))
+        h('div', { className: 'mea-spin', 'aria-hidden': 'true' }, '💍'), h('div', null, t('loading')))
     }
 
     const scenes = journey.scenes
@@ -78,8 +103,11 @@ window.__ModuleLoader__.load({
 
     const pick = (index) => {
       if (picked !== undefined) return
-      setPicks((prev) => ({ ...prev, [scene.id]: index }))
+      const nextPicks = { ...picks, [scene.id]: index }
+      setPicks(nextPicks)
       setRevealed((prev) => ({ ...prev, [scene.id]: true }))
+      // Persist immediately: a reload mid-scene should resume here.
+      store.persist(avatar.id, { picks: nextPicks, step, tier })
     }
 
     const finish = async () => {
@@ -91,6 +119,8 @@ window.__ModuleLoader__.load({
           AVATAR_JUDGE_PATH + '?id=' + encodeURIComponent(journey.id)
           + '&choices=' + encodeURIComponent(JSON.stringify(choices)))
         setJudgement(result && !result.error ? result : null)
+        // The journey is over: drop the save so replaying starts from scene 1.
+        store.clear(avatar.id)
       } catch {
         setJudgement(null)
       }
@@ -116,10 +146,16 @@ window.__ModuleLoader__.load({
           h('div', null,
             h('h2', null, t('avatarResultTitle')),
             h('div', { className: 'mea-kicker' }, journey.name + ' · ' + journey.theme))),
-        h('div', { className: 'mea-verdict' },
+        h('div', { className: 'mea-verdict', 'aria-live': 'polite' },
           h('div', { className: 'mea-verdict-label' }, judgement.verdict),
-          h('div', { className: 'mea-verdict-bar' },
-            h('i', { style: { width: Math.round(judgement.ratio * 100) + '%' } })),
+          h('div', {
+            className: 'mea-verdict-bar',
+            role: 'progressbar',
+            'aria-valuenow': Math.round(judgement.ratio * 100),
+            'aria-valuemin': 0,
+            'aria-valuemax': 100,
+            'aria-label': t('avatarScore'),
+          }, h('i', { style: { width: Math.round(judgement.ratio * 100) + '%' } })),
           h('div', { className: 'mea-kicker' }, judgement.summary)),
         h('div', { className: 'mea-jd-list' }, ...rows),
         h('div', { className: 'mea-avatar-actions' },
@@ -151,7 +187,7 @@ window.__ModuleLoader__.load({
     if (showResult) {
       const chosen = scene.choices.find((c) => c.index === picked)
       const canonChoice = scene.choices.find((c) => c.canon)
-      outcome = h('div', { className: 'mea-outcome' },
+      outcome = h('div', { className: 'mea-outcome', 'aria-live': 'polite' },
         h('div', { className: 'mea-outcome-head' },
           h('span', { className: 'mea-outcome-tag' }, chosen.toneLabel),
           chosen.canon ? h('span', { className: 'mea-outcome-canon' }, t('avatarFollowedBook')) : null),
@@ -172,8 +208,14 @@ window.__ModuleLoader__.load({
           h('h2', null, journey.name),
           h('div', { className: 'mea-kicker' }, journey.theme + ' · ' + journey.difficulty)),
         h('button', { className: 'mea-btn', onClick: onExit }, t('avatarBack'))),
-      h('div', { className: 'mea-progress' },
-        h('i', { style: { width: progress + '%' } })),
+      h('div', {
+        className: 'mea-progress',
+        role: 'progressbar',
+        'aria-valuenow': progress,
+        'aria-valuemin': 0,
+        'aria-valuemax': 100,
+        'aria-label': t('avatarProgress'),
+      }, h('i', { style: { width: progress + '%' } })),
       h('div', { className: 'mea-kicker', style: { marginTop: 8 } },
         t('avatarSceneOf', { n: step + 1, total: scenes.length })),
       h('h3', { className: 'mea-scene-title' }, scene.title),
@@ -182,14 +224,18 @@ window.__ModuleLoader__.load({
         scene.event ? h('span', { className: 'mea-tag' }, '🕰️ ' + scene.event.year + ' ' + scene.event.title) : null),
       h('p', { className: 'mea-narration' }, scene.narration),
       h('p', { className: 'mea-stakes' }, scene.stakes),
-      h('div', { className: 'mea-choices' }, ...choices),
+      h('div', { className: 'mea-choices', role: 'group', 'aria-label': t('avatarChoices') }, ...choices),
       outcome,
       showResult ? h('div', { className: 'mea-avatar-actions' },
         isLast
           ? h('button', { className: 'mea-btn mea-primary', onClick: finish }, t('avatarSeeVerdict'))
           : h('button', {
             className: 'mea-btn mea-primary',
-            onClick: () => setStep((s) => Math.min(scenes.length - 1, s + 1)),
+            onClick: () => {
+              const nextStep = Math.min(scenes.length - 1, step + 1)
+              setStep(nextStep)
+              store.persist(avatar.id, { picks, step: nextStep, tier })
+            },
           }, t('avatarNext'))) : null,
       (journey.hiddenScenes > 0) ? h('p', { className: 'mea-kicker', style: { marginTop: 10 } },
         t('avatarHidden', { n: journey.hiddenScenes })) : null)
@@ -202,6 +248,13 @@ window.__ModuleLoader__.load({
     const tr = tt || t
     const [tier, setTier] = React.useState(1)
     const [active, setActive] = React.useState(null)
+
+    // 恢复上次的剧透等级：在父组件完成，避免与 Player 的 effect 依赖打架。
+    const openAvatar = (avatar) => {
+      const remembered = store.rememberedTier(avatar.id)
+      if (remembered) setTier(remembered)
+      setActive(avatar)
+    }
 
     if (active) {
       return h(Player, { avatar: active, tier, onExit: () => setActive(null) })
@@ -220,10 +273,10 @@ window.__ModuleLoader__.load({
         key: avatar.id,
         className: 'mea-avatar-tile' + (blocked ? ' mea-avatar-blocked' : ''),
         disabled: blocked,
-        onClick: () => setActive(avatar),
+        onClick: () => openAvatar(avatar),
       },
         h('div', { className: 'mea-av-tile-top' },
-          h('div', { className: 'mea-av-badge' },
+          h('div', { className: 'mea-av-badge', 'aria-hidden': 'true' },
             avatar.nameEn ? avatar.nameEn.slice(0, 1) : '★'),
           h('div', { style: { flex: 1, textAlign: 'left' } },
             h('b', null, avatar.name),
@@ -251,6 +304,114 @@ window.__ModuleLoader__.load({
   }
     }
     /* --- avatar-tab:end --- */
+/* ------------------------------------------------------------------ *
+     * Storage adapter for avatar journeys.
+     *
+     * Kept outside the generated avatar-tab block so re-inlining cannot remove
+     * it. Every access is wrapped: a storage failure must never break a journey.
+     * ------------------------------------------------------------------ */
+    const SNAPSHOT_VERSION = 1
+    const SNAPSHOT_PREFIX = 'mea:avatar:v' + SNAPSHOT_VERSION + ':'
+    const TIER_PREFIX = 'mea:avatar:tier:'
+
+    function safeStorage() {
+      try {
+        const probe = '__mea_probe__'
+        window.localStorage.setItem(probe, '1')
+        window.localStorage.removeItem(probe)
+        return window.localStorage
+      } catch {
+        return null
+      }
+    }
+
+    function buildAvatarStorage() {
+      const media = safeStorage()
+
+      const read = (key) => {
+        if (!media) return null
+        try { return media.getItem(key) } catch { return null }
+      }
+      const write = (key, value) => {
+        if (!media) return false
+        try { media.setItem(key, value); return true } catch { return false }
+      }
+      const drop = (key) => {
+        if (!media) return false
+        try { media.removeItem(key); return true } catch { return false }
+      }
+
+      return {
+        /** Validate a stored snapshot against the journey just loaded. */
+        restore(avatarId, journey) {
+          const raw = read(SNAPSHOT_PREFIX + avatarId)
+          if (!raw || !journey || !Array.isArray(journey.scenes)) return null
+          let parsed
+          try { parsed = JSON.parse(raw) } catch { return null }
+          if (!parsed || typeof parsed !== 'object') return null
+          if (parsed.v !== SNAPSHOT_VERSION) return null
+
+          const byId = {}
+          for (const scene of journey.scenes) {
+            if (scene && typeof scene.id === 'string') byId[scene.id] = scene
+          }
+          const picks = {}
+          const rawPicks = parsed.picks && typeof parsed.picks === 'object' ? parsed.picks : {}
+          for (const sceneId of Object.keys(rawPicks)) {
+            const scene = byId[sceneId]
+            if (!scene) continue
+            const index = rawPicks[sceneId]
+            if (!Number.isInteger(index)) continue
+            const count = Array.isArray(scene.choices) ? scene.choices.length : 0
+            if (index < 0 || index >= count) continue
+            picks[sceneId] = index
+          }
+
+          const sceneCount = journey.scenes.length
+          let step = Number.isInteger(parsed.step) ? parsed.step : 0
+          if (step < 0) step = 0
+          if (step > sceneCount - 1) step = sceneCount - 1
+
+          if (Object.keys(picks).length === 0 && step === 0) return null
+
+          const tier = [1, 2, 3].includes(parsed.tier) ? parsed.tier : 1
+          return { picks, step, tier }
+        },
+
+        /** Persist the current decisions. Never throws. */
+        persist(avatarId, state) {
+          const picks = {}
+          const source = state && state.picks
+          if (source && typeof source === 'object') {
+            for (const sceneId of Object.keys(source)) {
+              const index = source[sceneId]
+              if (!Number.isInteger(index) || index < 0) continue
+              picks[sceneId] = index
+            }
+          }
+          const step = Number.isInteger(state && state.step) && state.step > 0 ? state.step : 0
+          const tier = [1, 2, 3].includes(state && state.tier) ? state.tier : 1
+          const payload = JSON.stringify({ v: SNAPSHOT_VERSION, picks, step, tier, savedAt: Date.now() })
+          write(SNAPSHOT_PREFIX + avatarId, payload)
+          // The spoiler level outlives a finished journey on purpose.
+          write(TIER_PREFIX + avatarId, String(tier))
+          return true
+        },
+
+        /** Forget a finished journey. */
+        clear(avatarId) {
+          return drop(SNAPSHOT_PREFIX + avatarId)
+        },
+
+        /** The spoiler level last used for this avatar, if any. */
+        rememberedTier(avatarId) {
+          const raw = read(TIER_PREFIX + avatarId)
+          const value = Number(raw)
+          return [1, 2, 3].includes(value) ? value : null
+        },
+      }
+    }
+
 /* ------------------------------------------------------------------ *
      * Copy
      * ------------------------------------------------------------------ */
@@ -297,6 +458,9 @@ window.__ModuleLoader__.load({
       avatarFollowedBook: '✓ 与原著一致',
       avatarHidden: '还有 {n} 幕因剧透范围被隐藏。',
       avatarLoadFail: '这一段旅程没能加载出来，请返回重试。',
+      avatarProgress: '旅程进度',
+      avatarScore: '与原著的一致程度',
+      avatarChoices: '这一幕的选项',
       // overview
       ovWelcome: '欢迎来到中土',
       ovIntro: '这不是一份资料列表，而是一张可以走进去的地图。你可以从任何一位人物出发，顺着关系走，或者按时间线把故事串起来。',
@@ -413,6 +577,9 @@ window.__ModuleLoader__.load({
       avatarFollowedBook: '✓ Follows the book',
       avatarHidden: '{n} more scenes are hidden at this spoiler level.',
       avatarLoadFail: 'This journey could not load; go back and retry.',
+      avatarProgress: 'Journey progress',
+      avatarScore: 'How closely you followed the book',
+      avatarChoices: 'Choices for this scene',
       ovWelcome: 'Welcome to Middle-earth', ovIntro: 'Not a list of facts but a map you can walk through. Start from any character and follow the relations, or follow the timeline.',
       ovStartHere: 'Start here', ovQuick: 'Quick links',
       ovCharacters: 'characters', ovRelations: 'relations', ovPlaces: 'places',
@@ -661,6 +828,49 @@ window.__ModuleLoader__.load({
         .mea-jd-none{color:var(--dsw-alias-label-secondary)}
         .mea-jd-row small{display:block;color:var(--dsw-alias-label-secondary);font-size:11.5px;margin-top:2px}
         .mea-jd-row small.mea-jd-canon{color:var(--dsw-alias-brand-primary)}
+
+        /* Focus visibility: the browser default can vanish against the dark
+           theme, and these controls are all keyboard reachable. */
+        .mea-btn:focus-visible,
+        .mea-choice:focus-visible,
+        .mea-tab:focus-visible,
+        .mea-chip:focus-visible,
+        .mea-card:focus-visible,
+        .mea-avatar-tile:focus-visible,
+        .mea-qbtn:focus-visible,
+        .mea-input:focus-visible,
+        .mea-select:focus-visible,
+        .mea-drawer-close:focus-visible {
+          outline: 2px solid var(--dsw-alias-brand-primary);
+          outline-offset: 2px;
+        }
+
+        /* One breakpoint is enough for a text-first panel. Below this width the
+           multi-column grids and the 580px drawer stop fitting; the tab strip
+           scrolls instead of wrapping so it cannot eat half the viewport. */
+        @media (max-width: 720px) {
+          .mea-scroll{padding:16px 14px 28px}
+          .mea-head h1{font-size:21px}
+          .mea-stats{grid-template-columns:repeat(2,1fr)}
+          .mea-grid,.mea-avatar-grid,.mea-quick,.mea-two,.mea-diff{grid-template-columns:1fr}
+          .mea-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin}
+          .mea-tab{flex:0 0 auto}
+          .mea-drawer{width:100%;max-width:100%;border-left:0;padding:20px 16px 36px}
+          .mea-avatar-card{padding:16px 14px 20px}
+          .mea-barrow span:first-child{width:72px;flex:0 0 72px}
+          .mea-graphwrap{height:400px}
+          .mea-pathrow{gap:6px}
+          .mea-input,.mea-select{font-size:14px}
+        }
+
+        /* Narrower still: keep tap targets comfortable and stop the stat tiles
+           from squeezing the label. */
+        @media (max-width: 400px) {
+          .mea-stats{grid-template-columns:1fr 1fr}
+          .mea-stat{padding:8px 10px}
+          .mea-choice{padding:11px 12px}
+          .mea-avatar-actions .mea-btn{flex:1 1 auto}
+        }
       `
       document.head.appendChild(style)
       return () => {
@@ -1633,10 +1843,12 @@ window.__ModuleLoader__.load({
 
       // Built once per translator identity so the player keeps its state
       // across parent re-renders.
+      const avatarStorage = React.useMemo(() => buildAvatarStorage(), [])
       const AvatarTabView = React.useMemo(
         () => buildAvatarTab({
           h, React, t,
           paths: { AVATARS_PATH, AVATAR_PATH, AVATAR_JUDGE_PATH },
+          storage: avatarStorage,
         }),
         [t],
       )

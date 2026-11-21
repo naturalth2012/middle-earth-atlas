@@ -8,8 +8,17 @@
  * tab component, so the parent keeps ownership of copy, styling and data.
  */
 
-export function buildAvatarTab({ h, React, t, paths }) {
+export function buildAvatarTab({ h, React, t, paths, storage }) {
   const { AVATARS_PATH, AVATAR_PATH, AVATAR_JUDGE_PATH } = paths
+
+  // The storage adapter is injected; when the host cannot persist (private
+  // mode, disabled storage) it is a null-safe no-op and the journey still runs.
+  const store = storage || {
+    restore: () => null,
+    persist: () => false,
+    clear: () => false,
+    rememberedTier: () => null,
+  }
 
   const getJSON = async (url) => {
     const res = await fetch(url)
@@ -32,7 +41,23 @@ export function buildAvatarTab({ h, React, t, paths }) {
       let alive = true
       setJourney(null); setFailed(false); setStep(0); setPicks({}); setRevealed({}); setJudgement(null)
       getJSON(AVATAR_PATH + '?id=' + encodeURIComponent(avatar.id) + '&maxTier=' + tier)
-        .then((d) => { if (alive) { if (d && d.error) setFailed(true); else setJourney(d) } })
+        .then((d) => {
+          if (!alive) return
+          if (!d || d.error) { setFailed(true); return }
+          // Restore a previous session before the first paint of the journey.
+          // The snapshot is validated against the payload we just received, so
+          // a save from an older dataset is trimmed rather than trusted.
+          const saved = store.restore(avatar.id, d)
+          if (saved) {
+            setPicks(saved.picks)
+            setStep(saved.step)
+            // Mark restored scenes as revealed so the outcome stays visible.
+            const revealedNow = {}
+            for (const sceneId of Object.keys(saved.picks)) revealedNow[sceneId] = true
+            setRevealed(revealedNow)
+          }
+          setJourney(d)
+        })
         .catch(() => { if (alive) setFailed(true) })
       return () => { alive = false }
     }, [avatar.id, tier])
@@ -44,7 +69,7 @@ export function buildAvatarTab({ h, React, t, paths }) {
     }
     if (!journey) {
       return h('div', { className: 'mea-avatar-card mea-avatar-loading' },
-        h('div', { className: 'mea-spin' }, '💍'), h('div', null, t('loading')))
+        h('div', { className: 'mea-spin', 'aria-hidden': 'true' }, '💍'), h('div', null, t('loading')))
     }
 
     const scenes = journey.scenes
@@ -55,8 +80,11 @@ export function buildAvatarTab({ h, React, t, paths }) {
 
     const pick = (index) => {
       if (picked !== undefined) return
-      setPicks((prev) => ({ ...prev, [scene.id]: index }))
+      const nextPicks = { ...picks, [scene.id]: index }
+      setPicks(nextPicks)
       setRevealed((prev) => ({ ...prev, [scene.id]: true }))
+      // Persist immediately: a reload mid-scene should resume here.
+      store.persist(avatar.id, { picks: nextPicks, step, tier })
     }
 
     const finish = async () => {
@@ -68,6 +96,8 @@ export function buildAvatarTab({ h, React, t, paths }) {
           AVATAR_JUDGE_PATH + '?id=' + encodeURIComponent(journey.id)
           + '&choices=' + encodeURIComponent(JSON.stringify(choices)))
         setJudgement(result && !result.error ? result : null)
+        // The journey is over: drop the save so replaying starts from scene 1.
+        store.clear(avatar.id)
       } catch {
         setJudgement(null)
       }
@@ -93,10 +123,16 @@ export function buildAvatarTab({ h, React, t, paths }) {
           h('div', null,
             h('h2', null, t('avatarResultTitle')),
             h('div', { className: 'mea-kicker' }, journey.name + ' · ' + journey.theme))),
-        h('div', { className: 'mea-verdict' },
+        h('div', { className: 'mea-verdict', 'aria-live': 'polite' },
           h('div', { className: 'mea-verdict-label' }, judgement.verdict),
-          h('div', { className: 'mea-verdict-bar' },
-            h('i', { style: { width: Math.round(judgement.ratio * 100) + '%' } })),
+          h('div', {
+            className: 'mea-verdict-bar',
+            role: 'progressbar',
+            'aria-valuenow': Math.round(judgement.ratio * 100),
+            'aria-valuemin': 0,
+            'aria-valuemax': 100,
+            'aria-label': t('avatarScore'),
+          }, h('i', { style: { width: Math.round(judgement.ratio * 100) + '%' } })),
           h('div', { className: 'mea-kicker' }, judgement.summary)),
         h('div', { className: 'mea-jd-list' }, ...rows),
         h('div', { className: 'mea-avatar-actions' },
@@ -128,7 +164,7 @@ export function buildAvatarTab({ h, React, t, paths }) {
     if (showResult) {
       const chosen = scene.choices.find((c) => c.index === picked)
       const canonChoice = scene.choices.find((c) => c.canon)
-      outcome = h('div', { className: 'mea-outcome' },
+      outcome = h('div', { className: 'mea-outcome', 'aria-live': 'polite' },
         h('div', { className: 'mea-outcome-head' },
           h('span', { className: 'mea-outcome-tag' }, chosen.toneLabel),
           chosen.canon ? h('span', { className: 'mea-outcome-canon' }, t('avatarFollowedBook')) : null),
@@ -149,8 +185,14 @@ export function buildAvatarTab({ h, React, t, paths }) {
           h('h2', null, journey.name),
           h('div', { className: 'mea-kicker' }, journey.theme + ' · ' + journey.difficulty)),
         h('button', { className: 'mea-btn', onClick: onExit }, t('avatarBack'))),
-      h('div', { className: 'mea-progress' },
-        h('i', { style: { width: progress + '%' } })),
+      h('div', {
+        className: 'mea-progress',
+        role: 'progressbar',
+        'aria-valuenow': progress,
+        'aria-valuemin': 0,
+        'aria-valuemax': 100,
+        'aria-label': t('avatarProgress'),
+      }, h('i', { style: { width: progress + '%' } })),
       h('div', { className: 'mea-kicker', style: { marginTop: 8 } },
         t('avatarSceneOf', { n: step + 1, total: scenes.length })),
       h('h3', { className: 'mea-scene-title' }, scene.title),
@@ -159,14 +201,18 @@ export function buildAvatarTab({ h, React, t, paths }) {
         scene.event ? h('span', { className: 'mea-tag' }, '🕰️ ' + scene.event.year + ' ' + scene.event.title) : null),
       h('p', { className: 'mea-narration' }, scene.narration),
       h('p', { className: 'mea-stakes' }, scene.stakes),
-      h('div', { className: 'mea-choices' }, ...choices),
+      h('div', { className: 'mea-choices', role: 'group', 'aria-label': t('avatarChoices') }, ...choices),
       outcome,
       showResult ? h('div', { className: 'mea-avatar-actions' },
         isLast
           ? h('button', { className: 'mea-btn mea-primary', onClick: finish }, t('avatarSeeVerdict'))
           : h('button', {
             className: 'mea-btn mea-primary',
-            onClick: () => setStep((s) => Math.min(scenes.length - 1, s + 1)),
+            onClick: () => {
+              const nextStep = Math.min(scenes.length - 1, step + 1)
+              setStep(nextStep)
+              store.persist(avatar.id, { picks, step: nextStep, tier })
+            },
           }, t('avatarNext'))) : null,
       (journey.hiddenScenes > 0) ? h('p', { className: 'mea-kicker', style: { marginTop: 10 } },
         t('avatarHidden', { n: journey.hiddenScenes })) : null)
@@ -179,6 +225,13 @@ export function buildAvatarTab({ h, React, t, paths }) {
     const tr = tt || t
     const [tier, setTier] = React.useState(1)
     const [active, setActive] = React.useState(null)
+
+    // 恢复上次的剧透等级：在父组件完成，避免与 Player 的 effect 依赖打架。
+    const openAvatar = (avatar) => {
+      const remembered = store.rememberedTier(avatar.id)
+      if (remembered) setTier(remembered)
+      setActive(avatar)
+    }
 
     if (active) {
       return h(Player, { avatar: active, tier, onExit: () => setActive(null) })
@@ -197,10 +250,10 @@ export function buildAvatarTab({ h, React, t, paths }) {
         key: avatar.id,
         className: 'mea-avatar-tile' + (blocked ? ' mea-avatar-blocked' : ''),
         disabled: blocked,
-        onClick: () => setActive(avatar),
+        onClick: () => openAvatar(avatar),
       },
         h('div', { className: 'mea-av-tile-top' },
-          h('div', { className: 'mea-av-badge' },
+          h('div', { className: 'mea-av-badge', 'aria-hidden': 'true' },
             avatar.nameEn ? avatar.nameEn.slice(0, 1) : '★'),
           h('div', { style: { flex: 1, textAlign: 'left' } },
             h('b', null, avatar.name),

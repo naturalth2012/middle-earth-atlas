@@ -38,6 +38,7 @@
 | `lore.js` | 地点、宝物、术语、名句、剧情节点、旅程 |
 | `journey.js` | 化身之旅：8 位可扮演角色、25 幕场景、54 个抉择 |
 | `avatar-tab.js` | 化身之旅面板组件源码（由 `scripts/inline-avatar-tab.mjs` 内联进 client） |
+| `storage.js` | 化身进度存档的纯函数校验（版本、未知场景、越界选项都会被安全丢弃） |
 | `engine.js` | 纯查询与图算法，Host 路由与对话工具共用 |
 | `index.js` | Host 半部：同源路由与 6 个 Agent 工具 |
 | `client.js` | Client 半部：React 面板（无 JSX，仅用宿主主题变量） |
@@ -49,6 +50,10 @@ node scripts/selfcheck.mjs    # 数据完整性、引擎行为、路由与清单
 node scripts/probe.mjs        # 无浏览器渲染全部标签页
 node scripts/probe-drawer.mjs # 渲染四类档案抽屉
 node scripts/inline-avatar-tab.mjs  # 改动 avatar-tab.js 后重新内联进 client.js
+node scripts/probe-storage.mjs      # 用模拟 localStorage 验证存档往返与篡改防御
+
+# 一条命令跑完全部：
+npm run check
 ```
 
 ## 安装

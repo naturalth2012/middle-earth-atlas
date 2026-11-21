@@ -19,6 +19,7 @@ const data = await import(new URL('../data.js', import.meta.url).href)
 const lore = await import(new URL('../lore.js', import.meta.url).href)
 const engine = await import(new URL('../engine.js', import.meta.url).href)
 const journey = await import(new URL('../journey.js', import.meta.url).href)
+const storage = await import(new URL('../storage.js', import.meta.url).href)
 
 let failures = 0
 let checks = 0
@@ -387,28 +388,247 @@ group('generated code')
 
 /**
  * The inliner's contract, duplicated deliberately in a testable form.
- * `avatar-tab.js` must contain exactly one exported builder whose body runs to
- * the file's final closing brace; everything between is the generated block.
+ * `avatar-tab.js` must contain exactly one exported builder whose parameter
+ * list is carried verbatim into the generated copy and whose body runs to the
+ * file's final closing brace.
  */
 function buildExpectedBlock(tabCode) {
   const BEGIN = '/* --- avatar-tab:begin (generated from avatar-tab.js — do not edit here) --- */'
   const END = '/* --- avatar-tab:end --- */'
-  const header = 'export function buildAvatarTab({ h, React, t, paths }) {'
 
-  const headerAt = tabCode.indexOf(header)
+  const headerMatch = tabCode.match(/^export function buildAvatarTab\(\{([^}]*)\}\) \{/m)
+  if (!headerMatch) return null
+
+  const params = headerMatch[1].replace(/\s+/g, ' ').trim()
+  const headerAt = tabCode.indexOf(headerMatch[0])
   if (headerAt === -1) return null
 
   const lastBrace = tabCode.lastIndexOf('\n}')
   if (lastBrace === -1 || lastBrace < headerAt) return null
 
-  const body = tabCode.slice(headerAt + header.length, lastBrace).replace(/^\s*\n/, '')
+  const body = tabCode.slice(headerAt + headerMatch[0].length, lastBrace).replace(/^\s*\n/, '')
   return [
     BEGIN,
-    '    const buildAvatarTab = ({ h, React, t, paths }) => {',
+    `    const buildAvatarTab = ({ ${params} }) => {`,
     body.replace(/\n+$/, ''),
     '    }',
     '    ' + END,
   ].join('\n')
+}
+
+/* ------------------------------------------------------------------ *
+ * Avatar persistence
+ *
+ * Snapshots survive reloads, so they must never be trusted. These checks pin
+ * the validation contract: stale versions, unknown scenes and out-of-range
+ * choices are dropped, and a broken store degrades to "no persistence".
+ * ------------------------------------------------------------------ */
+group('avatar persistence')
+
+{
+  const { SNAPSHOT_VERSION, buildSnapshot, validateSnapshot, loadSnapshot,
+    saveSnapshot, clearSnapshot, snapshotKey } = storage
+
+  /** A Map-backed store with the same shape as localStorage. */
+  const memoryStore = () => {
+    const map = new Map()
+    return {
+      getItem: (k) => (map.has(k) ? map.get(k) : null),
+      setItem: (k, v) => { map.set(k, String(v)) },
+      removeItem: (k) => { map.delete(k) },
+      size: () => map.size,
+    }
+  }
+
+  const frodo = engine.avatarJourney('frodo')
+  check('journey fixture loads', Boolean(frodo && frodo.scenes.length >= 3))
+
+  // --- round trip ---
+  const store = memoryStore()
+  const state = { picks: { [frodo.scenes[0].id]: 0, [frodo.scenes[1].id]: 1 }, step: 1, tier: 2 }
+  check('saveSnapshot reports success', saveSnapshot(store, 'frodo', state) === true)
+
+  const restored = loadSnapshot(store, 'frodo', frodo)
+  check('round trip restores picks', restored && restored.picks[frodo.scenes[0].id] === 0)
+  check('round trip restores step', restored && restored.step === 1)
+  check('round trip restores tier', restored && restored.tier === 2)
+
+  check('snapshot key is versioned', snapshotKey('frodo').includes('v' + SNAPSHOT_VERSION))
+  check('snapshot key names the avatar', snapshotKey('frodo').endsWith('frodo'))
+
+  // --- clear ---
+  check('clearSnapshot reports success', clearSnapshot(store, 'frodo') === true)
+  check('cleared snapshot loads as null', loadSnapshot(store, 'frodo', frodo) === null)
+
+  // --- validation: bad inputs never throw, never return junk ---
+  check('null snapshot is rejected', validateSnapshot(null, frodo) === null)
+  check('non-object snapshot is rejected', validateSnapshot('nope', frodo) === null)
+  check('wrong version is rejected', validateSnapshot({ v: 999, picks: {}, step: 0 }, frodo) === null)
+  check('missing journey is rejected', validateSnapshot({ v: SNAPSHOT_VERSION, picks: {} }, null) === null)
+  check('empty journey is rejected',
+    validateSnapshot({ v: SNAPSHOT_VERSION, picks: {} }, { id: 'x', scenes: [] }) === null)
+
+  // Unknown scene ids are dropped but valid ones survive.
+  const mixed = validateSnapshot({
+    v: SNAPSHOT_VERSION,
+    picks: { [frodo.scenes[0].id]: 0, 'scene-that-does-not-exist': 2 },
+    step: 0,
+    tier: 1,
+  }, frodo)
+  check('unknown scene is dropped', mixed && !('scene-that-does-not-exist' in mixed.picks))
+  check('valid scene survives alongside an unknown one',
+    mixed && mixed.picks[frodo.scenes[0].id] === 0)
+
+  // Out-of-range choice indexes are dropped.
+  const firstScene = frodo.scenes[0]
+  const outOfRange = validateSnapshot({
+    v: SNAPSHOT_VERSION,
+    picks: { [firstScene.id]: firstScene.choices.length + 5 },
+    step: 1,
+    tier: 1,
+  }, frodo)
+  check('out-of-range choice is dropped', outOfRange === null || !(firstScene.id in outOfRange.picks))
+
+  const negative = validateSnapshot({
+    v: SNAPSHOT_VERSION,
+    picks: { [firstScene.id]: -1 },
+    step: 1,
+  }, frodo)
+  check('negative choice is dropped', negative === null || !(firstScene.id in negative.picks))
+
+  // Step is clamped into range.
+  const clampedHigh = validateSnapshot({
+    v: SNAPSHOT_VERSION,
+    picks: { [firstScene.id]: 0 },
+    step: 9999,
+    tier: 1,
+  }, frodo)
+  check('step clamps to the last scene',
+    clampedHigh && clampedHigh.step === frodo.scenes.length - 1)
+
+  const clampedNeg = validateSnapshot({
+    v: SNAPSHOT_VERSION,
+    picks: { [firstScene.id]: 0 },
+    step: -5,
+    tier: 1,
+  }, frodo)
+  check('negative step clamps to zero', clampedNeg && clampedNeg.step === 0)
+
+  // Invalid tier falls back to 1.
+  const badTier = validateSnapshot({
+    v: SNAPSHOT_VERSION,
+    picks: { [firstScene.id]: 0 },
+    step: 0,
+    tier: 42,
+  }, frodo)
+  check('invalid tier falls back to 1', badTier && badTier.tier === 1)
+
+  // --- degradation: a throwing store must not break gameplay ---
+  const hostile = {
+    getItem() { throw new Error('denied') },
+    setItem() { throw new Error('quota') },
+    removeItem() { throw new Error('denied') },
+  }
+  check('loadSnapshot survives a throwing store', loadSnapshot(hostile, 'frodo', frodo) === null)
+  check('saveSnapshot reports false on a throwing store', saveSnapshot(hostile, 'frodo', state) === false)
+  check('clearSnapshot reports false on a throwing store', clearSnapshot(hostile, 'frodo') === false)
+  check('a null store is tolerated', loadSnapshot(null, 'frodo', frodo) === null
+    && saveSnapshot(null, 'frodo', state) === false)
+
+  // Corrupt JSON in storage must not throw.
+  const corrupt = memoryStore()
+  corrupt.setItem(snapshotKey('frodo'), '{not json')
+  check('corrupt JSON loads as null', loadSnapshot(corrupt, 'frodo', frodo) === null)
+
+  // --- buildSnapshot sanitises ---
+  const built = buildSnapshot({ picks: { a: 0, b: -1, c: 'x' }, step: -3, tier: 9 })
+  check('buildSnapshot keeps valid picks only', Object.keys(built.picks).length === 1 && built.picks.a === 0)
+  check('buildSnapshot clamps step', built.step === 0)
+  check('buildSnapshot clamps tier', built.tier === 1)
+  check('buildSnapshot stamps a version', built.v === SNAPSHOT_VERSION)
+  check('buildSnapshot stamps a time', typeof built.savedAt === 'number' && built.savedAt > 0)
+
+  // --- isolation between avatars ---
+  const shared = memoryStore()
+  saveSnapshot(shared, 'frodo', { picks: { [frodo.scenes[0].id]: 0 }, step: 1, tier: 1 })
+  const sam = engine.avatarJourney('sam')
+  check('another avatar does not read this snapshot', loadSnapshot(shared, 'sam', sam) === null)
+  check('each avatar has its own key', snapshotKey('frodo') !== snapshotKey('sam'))
+}
+
+/* ------------------------------------------------------------------ *
+ * Accessibility & responsive layout
+ *
+ * CSS fails silently: a mistyped selector simply never applies. These checks
+ * pin the handful of structural promises the layout and semantics rely on, so
+ * a typo surfaces as a failed check rather than an invisible defect.
+ * ------------------------------------------------------------------ */
+group('accessibility & responsive')
+
+{
+  const clientCode = fs.readFileSync(path.join(root, 'client.js'), 'utf8').replace(/\r\n/g, '\n')
+  const tabCode = fs.readFileSync(path.join(root, 'avatar-tab.js'), 'utf8').replace(/\r\n/g, '\n')
+
+  // --- responsive ---
+  const mediaQueries = [...clientCode.matchAll(/@media \(max-width: (\d+)px\)/g)].map((m) => Number(m[1]))
+  check('at least one responsive breakpoint exists', mediaQueries.length > 0)
+  check('breakpoints are in a sane narrow-screen range',
+    mediaQueries.every((w) => w >= 360 && w <= 800),
+    mediaQueries.join(', '))
+
+  // Every selector inside a media block must exist outside it, otherwise the
+  // rule silently does nothing.
+  const mediaBlocks = [...clientCode.matchAll(/@media \(max-width: \d+px\) \{([\s\S]*?)\n        \}/g)].map((m) => m[1])
+  check('media blocks are parseable', mediaBlocks.length > 0, String(mediaBlocks.length))
+
+  for (const block2 of mediaBlocks) {
+    const selectors = [...block2.matchAll(/^\s*([.#][\w\-,.\s>#:()\[\]="']+?)\{/gm)]
+      .flatMap((m) => m[1].split(','))
+      .map((sel) => sel.trim())
+      .filter(Boolean)
+    for (const sel of selectors) {
+      // Compare only the leading class token; the media rule may add or omit
+      // descendant parts that legitimately differ.
+      const cls = sel.match(/^\.([\w-]+)/)
+      if (!cls) continue
+      check('responsive selector targets an existing class: .' + cls[1],
+        clientCode.includes('.' + cls[1]))
+    }
+  }
+
+  // The drawer must be allowed to go full width on narrow screens.
+  check('drawer becomes full width on narrow screens',
+    /@media[\s\S]{0,600}\.mea-drawer\{[^}]*width:100%/.test(clientCode))
+
+  // The tab strip must scroll rather than wrap when space is tight.
+  check('tab strip scrolls horizontally on narrow screens',
+    /@media[\s\S]{0,600}\.mea-tabs\{[^}]*overflow-x:auto/.test(clientCode))
+
+  // --- focus visibility ---
+  check('focus-visible styling is defined', clientCode.includes(':focus-visible'))
+  check('focus ring uses a theme token',
+    /:focus-visible[\s\S]{0,200}outline:[^;]*var\(--dsw-alias-brand-primary\)/.test(clientCode))
+
+  // --- ARIA in the avatar journey ---
+  check('journey progress exposes progressbar semantics', tabCode.includes("role: 'progressbar'"))
+  check('journey progress reports aria-valuenow', tabCode.includes("'aria-valuenow'"))
+  check('choice list is a labelled group', tabCode.includes("role: 'group'"))
+  check('outcome is announced politely', tabCode.includes("'aria-live': 'polite'"))
+  check('decorative spinners are hidden from assistive tech',
+    tabCode.includes("'aria-hidden'"))
+
+  // Interactive controls must be real buttons, not divs with onClick.
+  // (Native buttons are focusable and Enter-activatable without tabIndex.)
+  const divClicks = [...tabCode.matchAll(/h\('div', \{[^}]*onClick/g)]
+  check('no div-based click targets in the journey tab', divClicks.length === 0,
+    String(divClicks.length))
+  check('journey controls are native buttons', tabCode.includes("h('button'"))
+
+  // --- persistence surface ---
+  check('client exposes a storage adapter', clientCode.includes('buildAvatarStorage'))
+  check('storage access is guarded', clientCode.includes('function safeStorage'))
+  check('client tolerates a missing localStorage',
+    /safeStorage[\s\S]{0,400}catch/.test(clientCode))
 }
 
 group('manifest')

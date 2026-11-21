@@ -24,27 +24,32 @@ const root = path.join(here, '..')
 const BEGIN = '    /* --- avatar-tab:begin (generated from avatar-tab.js — do not edit here) --- */'
 const END = '    /* --- avatar-tab:end --- */'
 
-/** The tab source with its `export function` header removed. */
-function readTabBody() {
+/** The tab source split into its declared parameter list and body. */
+function readTabParts() {
   const raw = fs.readFileSync(path.join(root, 'avatar-tab.js'), 'utf8').replace(/\r\n/g, '\n')
-  const header = 'export function buildAvatarTab({ h, React, t, paths }) {'
+  // Match the builder header regardless of which optional deps it declares,
+  // and keep the parameter list verbatim so the generated copy cannot drift
+  // from the source's signature.
+  const headerMatch = raw.match(/^export function buildAvatarTab\(\{([^}]*)\}\) \{/m)
+  if (!headerMatch) throw new Error('avatar-tab.js: builder header not found')
+
+  const params = headerMatch[1].replace(/\s+/g, ' ').trim()
+  const header = headerMatch[0]
   const at = raw.indexOf(header)
-  if (at === -1) throw new Error('avatar-tab.js: builder header not found')
 
   // The file ends with the builder's closing brace as the last line.
   const lastBrace = raw.lastIndexOf('\n}')
   if (lastBrace === -1) throw new Error('avatar-tab.js: closing brace not found')
 
-  let body = raw.slice(at + header.length, lastBrace)
-  // Drop the module-level doc comment that precedes the header.
-  return body.replace(/^\s*\n/, '')
+  const body = raw.slice(at + header.length, lastBrace).replace(/^\s*\n/, '')
+  return { params, body }
 }
 
 function buildBlock() {
-  const body = readTabBody()
+  const { params, body } = readTabParts()
   return [
     BEGIN,
-    '    const buildAvatarTab = ({ h, React, t, paths }) => {',
+    `    const buildAvatarTab = ({ ${params} }) => {`,
     body.replace(/\n+$/, ''),
     '    }',
     END,

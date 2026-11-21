@@ -30,8 +30,8 @@
   },
   "scripts": {
     "test": "node scripts/selfcheck.mjs",
-    "check": "node scripts/selfcheck.mjs && node scripts/probe.mjs && node scripts/probe-drawer.mjs",
-    "probe": "node scripts/probe.mjs && node scripts/probe-drawer.mjs"
+    "check": "node scripts/selfcheck.mjs && node scripts/inline-avatar-tab.mjs --check && npm run probe",
+    "probe": "node scripts/probe.mjs && node scripts/probe-drawer.mjs && node scripts/probe-storage.mjs"
   },
   "exports": {
     ".": "./index.js",
@@ -41,7 +41,8 @@
     "./lore": "./lore.js",
     "./journey": "./journey.js",
     "./locale/*.json": "./locale/*.json",
-    "./icon": "./icon.svg"
+    "./icon": "./icon.svg",
+    "./storage": "./storage.js"
   },
   "files": [
     "index.js",
@@ -61,14 +62,20 @@
     "scripts/selfcheck.mjs",
     "scripts/probe.mjs",
     "scripts/probe-drawer.mjs",
-    "scripts/inline-avatar-tab.mjs"
+    "scripts/inline-avatar-tab.mjs",
+    "storage.js",
+    "scripts/probe-storage.mjs"
   ],
   "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "platform": "web",
       "immediately": true,
-      "inject": ["@deepseek-ai/dsh-client-ui-conversation"]
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
     }
   }
 }

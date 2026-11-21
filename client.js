@@ -282,6 +282,7 @@ window.__ModuleLoader__.load({
             h('b', null, avatar.name),
             h('small', null, avatar.factionLabel + ' · ' + avatar.difficulty))),
         h('div', { className: 'mea-av-tagline' }, avatar.tagline),
+        avatar.voice ? h('div', { className: 'mea-av-voice' }, '🗣 ' + avatar.voice) : null,
         h('div', { className: 'mea-av-meta' },
           h('span', { className: 'mea-tag' }, avatar.theme),
           h('span', { className: 'mea-tag' },
@@ -788,6 +789,7 @@ window.__ModuleLoader__.load({
         .mea-av-tile-top small{color:var(--dsw-alias-label-secondary);font-size:11.5px}
         .mea-av-badge{width:32px;height:32px;flex:0 0 32px;border-radius:9px;background:var(--dsw-alias-bg-layer-2);border:1px solid var(--dsw-alias-border-l1);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:var(--dsw-alias-brand-primary)}
         .mea-av-tagline{font-size:13px;color:var(--dsw-alias-label-secondary);font-style:italic;line-height:1.6}
+        .mea-av-voice{font-size:12px;color:var(--dsw-alias-brand-primary);opacity:.85;line-height:1.5}
         .mea-av-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:auto}
         .mea-avatar-card{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);border-radius:13px;padding:20px 22px 24px;max-width:820px}
         .mea-avatar-loading{display:flex;align-items:center;gap:12px;color:var(--dsw-alias-label-secondary)}

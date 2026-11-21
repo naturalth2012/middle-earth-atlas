@@ -431,6 +431,7 @@ export function avatarList(options = {}) {
       opening: avatar.opening,
       theme: avatar.theme,
       difficulty: avatar.difficulty,
+      voice: avatar.voice || '',
       sceneCount: scenes.length,
       totalScenes: avatar.scenes.length,
     })
@@ -495,6 +496,7 @@ export function avatarJourney(idOrName, options = {}) {
     opening: avatar.opening,
     theme: avatar.theme,
     difficulty: avatar.difficulty,
+    voice: avatar.voice || '',
     maxTier,
     scenes,
     totalScenes: avatar.scenes.length,

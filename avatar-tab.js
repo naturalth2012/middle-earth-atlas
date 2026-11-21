@@ -259,6 +259,7 @@ export function buildAvatarTab({ h, React, t, paths, storage }) {
             h('b', null, avatar.name),
             h('small', null, avatar.factionLabel + ' · ' + avatar.difficulty))),
         h('div', { className: 'mea-av-tagline' }, avatar.tagline),
+        avatar.voice ? h('div', { className: 'mea-av-voice' }, '🗣 ' + avatar.voice) : null,
         h('div', { className: 'mea-av-meta' },
           h('span', { className: 'mea-tag' }, avatar.theme),
           h('span', { className: 'mea-tag' },

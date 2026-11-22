@@ -143,7 +143,17 @@ export function buildAvatarTab({ h, React, t, paths, storage }) {
             h('b', null, (i + 1) + '. ' + d.sceneTitle),
             d.chosen ? h('small', null, t('avatarYourPick') + '：' + d.chosen.label) : null,
             (d.chosen && !d.followedBook && d.canonChoice)
-              ? h('small', { className: 'mea-jd-canon' }, t('avatarCanonWas') + '：' + d.canonChoice.label)
+              ? h('div', { className: 'mea-parallel' },
+                h('div', { className: 'mea-parallel-col' },
+                  h('span', { className: 'mea-parallel-tag mea-parallel-you' }, t('avatarParallelYou')),
+                  h('span', null, d.chosen.label)),
+                h('div', { className: 'mea-parallel-arrow' }, '⇄'),
+                h('div', { className: 'mea-parallel-col' },
+                  h('span', { className: 'mea-parallel-tag mea-parallel-book' }, t('avatarParallelBook')),
+                  h('span', null, d.canonChoice.label)),
+                d.canonChoice.note
+                  ? h('small', { className: 'mea-jd-canon' }, d.canonChoice.note)
+                  : null)
               : null))
       })
       return h('div', { className: 'mea-avatar-card' },

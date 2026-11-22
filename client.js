@@ -193,7 +193,17 @@ window.__ModuleLoader__.load({
             h('b', null, (i + 1) + '. ' + d.sceneTitle),
             d.chosen ? h('small', null, t('avatarYourPick') + '：' + d.chosen.label) : null,
             (d.chosen && !d.followedBook && d.canonChoice)
-              ? h('small', { className: 'mea-jd-canon' }, t('avatarCanonWas') + '：' + d.canonChoice.label)
+              ? h('div', { className: 'mea-parallel' },
+                h('div', { className: 'mea-parallel-col' },
+                  h('span', { className: 'mea-parallel-tag mea-parallel-you' }, t('avatarParallelYou')),
+                  h('span', null, d.chosen.label)),
+                h('div', { className: 'mea-parallel-arrow' }, '⇄'),
+                h('div', { className: 'mea-parallel-col' },
+                  h('span', { className: 'mea-parallel-tag mea-parallel-book' }, t('avatarParallelBook')),
+                  h('span', null, d.canonChoice.label)),
+                d.canonChoice.note
+                  ? h('small', { className: 'mea-jd-canon' }, d.canonChoice.note)
+                  : null)
               : null))
       })
       return h('div', { className: 'mea-avatar-card' },
@@ -556,6 +566,8 @@ window.__ModuleLoader__.load({
       avatarLocked: '此范围内不可玩',
       avatarNone: '这个剧透范围下没有可扮演的角色，试试放宽范围。',
       avatarSceneOf: '第 {n} / {total} 幕',
+      avatarParallelYou: '你的路',
+      avatarParallelBook: '原著的路',
       avatarNext: '继续',
       avatarSeeVerdict: '看看结局',
       avatarBack: '换个角色',
@@ -644,6 +656,7 @@ window.__ModuleLoader__.load({
       graphFocus: '聚焦人物',
       graphReset: '重置视图',
       graphHighlight: '按阵营高亮',
+      graphAllAges: '全部纪元',
       graphEmpty: '这里还没有关系数据',
       pathTool: '关系路径查询',
       pathFrom: '起点',
@@ -710,6 +723,8 @@ window.__ModuleLoader__.load({
       avatarLocked: 'Locked at this level',
       avatarNone: 'No playable character at this spoiler level; try widening it.',
       avatarSceneOf: 'Scene {n} of {total}',
+      avatarParallelYou: 'Your path',
+      avatarParallelBook: 'The book',
       avatarNext: 'Continue',
       avatarSeeVerdict: 'See the verdict',
       avatarBack: 'Pick another',
@@ -771,7 +786,7 @@ window.__ModuleLoader__.load({
       noRelations: 'No curated relationships yet.', noWorks: 'No works recorded.',
       graphHint: 'Drag nodes to pin, scroll to zoom, click a character to focus.',
       graphAll: 'All characters', graphFocus: 'Focus', graphReset: 'Reset view',
-      graphHighlight: 'Highlight faction', graphEmpty: 'No relations to show',
+      graphHighlight: 'Highlight faction', graphAllAges: 'All ages', graphEmpty: 'No relations to show',
       pathTool: 'Relationship path', pathFrom: 'From', pathTo: 'To', pathFind: 'Find path',
       pathPlaceholder: 'Enter a name, e.g. Aragorn',
       pathHint: 'Try Frodo → Galadriel and see how they connect.',
@@ -1039,6 +1054,12 @@ window.__ModuleLoader__.load({
         .mea-jd-none{color:var(--dsw-alias-label-secondary)}
         .mea-jd-row small{display:block;color:var(--dsw-alias-label-secondary);font-size:11.5px;margin-top:2px}
         .mea-jd-row small.mea-jd-canon{color:var(--dsw-alias-brand-primary)}
+        .mea-parallel{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:7px;width:100%}
+        .mea-parallel-col{flex:1 1 160px;background:var(--dsw-alias-bg-layer-2);border-radius:8px;padding:8px 10px;font-size:12.5px;line-height:1.6}
+        .mea-parallel-tag{display:block;font-size:10.5px;font-weight:700;margin-bottom:3px}
+        .mea-parallel-you{color:var(--dsw-alias-state-error-primary)}
+        .mea-parallel-book{color:var(--dsw-alias-state-success-primary)}
+        .mea-parallel-arrow{color:var(--dsw-alias-brand-primary);font-size:16px;flex:0 0 auto}
 
         /* Focus visibility: the browser default can vanish against the dark
            theme, and these controls are all keyboard reachable. */
@@ -1485,6 +1506,7 @@ window.__ModuleLoader__.load({
       const [faction, setFaction] = React.useState('')
       const [view, setView] = React.useState({ x: 0, y: 0, k: 1 })
       const [hover, setHover] = React.useState(null)
+      const [graphAge, setGraphAge] = React.useState('')
       const [tick, bump] = React.useReducer((v) => v + 1, 0)
       const drag = React.useRef(null)
       const pan = React.useRef(null)
@@ -1495,11 +1517,12 @@ window.__ModuleLoader__.load({
         const params = []
         if (focus) params.push('focus=' + encodeURIComponent(focus))
         if (faction) params.push('faction=' + encodeURIComponent(faction))
+        if (graphAge) params.push('age=' + encodeURIComponent(graphAge))
         getJSON(withTier(GRAPH_PATH + (params.length ? '?' + params.join('&') : ''), spoilerTier))
           .then((g) => { if (alive) { setGraph(g); setView({ x: 0, y: 0, k: 1 }) } })
           .catch(() => { if (alive) setGraph(null) })
         return () => { alive = false }
-      }, [focus, faction])
+      }, [focus, faction, graphAge])
 
       // Deterministic layout: seed on a circle, then relax repulsion + springs.
       // It runs once per graph payload so dragging does not fight the physics.
@@ -1596,9 +1619,13 @@ window.__ModuleLoader__.load({
         h('select', { className: 'mea-select', value: faction, onChange: (e) => setFaction(e.target.value) },
           h('option', { value: '' }, t('graphHighlight')),
           ...data.factions.map((f) => h('option', { key: f.id, value: f.id }, f.name))),
+        h('select', { className: 'mea-select', value: graphAge, onChange: (e) => setGraphAge(e.target.value) },
+          h('option', { value: '' }, t('graphAllAges')),
+          ...['第一纪元', '第二纪元', '第三纪元', '第四纪元'].map((age) =>
+            h('option', { key: age, value: age }, age))),
         h('button', {
           className: 'mea-btn',
-          onClick: () => { setFocus(''); setFaction(''); setView({ x: 0, y: 0, k: 1 }) },
+          onClick: () => { setFocus(''); setFaction(''); setGraphAge(''); setView({ x: 0, y: 0, k: 1 }) },
         }, t('graphReset')))
 
       let canvas
@@ -1945,7 +1972,7 @@ window.__ModuleLoader__.load({
             h('p', null, s.why),
             w ? h('p', {
               style: { fontSize: 11.5, color: 'var(--dsw-alias-brand-primary)', marginTop: 2 },
-            }, w.canon) : null)
+            }, w.canon + (w.readingHours ? ' · ' + w.readingHours : '')) : null)
         })
         return h('div', { key: p.id, className: 'mea-pathcard' },
           h('h3', null, p.icon + ' ' + p.name),

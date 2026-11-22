@@ -165,9 +165,22 @@ function adjacency() {
  */
 export function buildGraph(options = {}) {
   const focus = options.focus
-  const ids = Array.isArray(options.ids) && options.ids.length
+  let ids = Array.isArray(options.ids) && options.ids.length
     ? new Set(options.ids.filter((id) => CHARACTER_BY_ID[id]))
     : null
+
+  // Time slice: keep only characters who appear in events of the requested Age.
+  // This turns the static graph into "who is on the stage now" with no new data.
+  if (options.age) {
+    const inAge = new Set()
+    for (const e of EVENTS) {
+      if (e.age !== options.age) continue
+      for (const id of e.characters || []) inAge.add(id)
+    }
+    if (inAge.size) {
+      ids = ids ? new Set([...ids].filter((id) => inAge.has(id))) : inAge
+    }
+  }
 
   const allEdges = []
   const seen = new Set()

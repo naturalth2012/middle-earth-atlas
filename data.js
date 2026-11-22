@@ -22,6 +22,7 @@ export const WORKS = [
     canon: '托尔金原著',
     media: 'book',
     tone: '童话冒险，轻快幽默',
+    readingHours: "约 8–12 小时",
   },
   {
     id: 'lotr-book',
@@ -35,6 +36,7 @@ export const WORKS = [
     canon: '托尔金原著',
     media: 'book',
     tone: '史诗，厚重而深情',
+    readingHours: "约 40–60 小时",
   },
   {
     id: 'silmarillion',
@@ -48,6 +50,7 @@ export const WORKS = [
     canon: '托尔金原著',
     media: 'book',
     tone: '神话体，密度极高',
+    readingHours: "约 15–25 小时",
   },
   {
     id: 'hobbit-films',
@@ -61,6 +64,7 @@ export const WORKS = [
     canon: '彼得·杰克逊电影改编（与原著有差异）',
     media: 'film',
     tone: '视觉奇观，节奏外扩',
+    readingHours: "约 9 小时（三部）",
   },
   {
     id: 'lotr-films',
@@ -74,6 +78,7 @@ export const WORKS = [
     canon: '彼得·杰克逊电影改编（与原著有差异）',
     media: 'film',
     tone: '史诗视听标杆',
+    readingHours: "约 10 小时（加长版约 12 小时）",
   },
   {
     id: 'rop',
@@ -87,6 +92,7 @@ export const WORKS = [
     canon: '剧集改编 / 二创解释（非托尔金原著）',
     media: 'series',
     tone: '第二纪元群像',
+    readingHours: "约 16 小时（两季）",
   },
 ]
 

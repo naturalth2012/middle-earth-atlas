@@ -840,6 +840,19 @@ group('network analysis')
  * second copy used to drift from the first. These checks pin the contract:
  * one source string, embedded verbatim, and identical behaviour on both sides.
  * ------------------------------------------------------------------ */
+
+  // The time slice only works if the route forwards `age` to buildGraph.
+  {
+    const hostCode = fs.readFileSync(path.join(root, 'index.js'), 'utf8').replace(/\r\n/g, '\n')
+    const routeAt = hostCode.indexOf("register(GRAPH_PATH, (p) => buildGraph({")
+    check('graph route exists', routeAt !== -1)
+    if (routeAt !== -1) {
+      const routeBody = hostCode.slice(routeAt, routeAt + 300)
+      check('graph route passes age', /age:\s*p\.get\('age'\)/.test(routeBody))
+      check('graph route passes faction', /faction:\s*p\.get\('faction'\)/.test(routeBody))
+    }
+  }
+
 group('storage rule parity')
 
 {

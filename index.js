@@ -675,6 +675,7 @@ export function apply(ctx) {
       focus: p.get('focus') || undefined,
       ids: list(p.get('ids')),
       faction: p.get('faction') || undefined,
+      age: p.get('age') || undefined,
     }), 'middle-earth-atlas: graph route')
 
     register(NEIGHBORS_PATH, (p) => neighbors(p.get('id') || p.get('q') || '', { maxTier: p.get('maxTier') })

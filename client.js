@@ -586,6 +586,7 @@ window.__ModuleLoader__.load({
       progressCast: '你会遇到',
       progressEvents: '关键事件',
       progressLocked: '尚未读到',
+      progressLockedHint: '这部作品在你当前的剧透等级下被锁定：调整上方「剧透等级」或按下方的阅读顺序推进后解锁。',
       progressJourney: '故事线',
       progressJourneyNone: '暂无可显示的节点',
       progressFocus: '主角',
@@ -636,6 +637,10 @@ window.__ModuleLoader__.load({
       clearFilters: '清空筛选',
       empty: '没有找到符合条件的内容',
       emptyHint: '换个关键词或清空筛选试试。',
+      tierLockedThemes: '主题辩证都围绕结局与抉择，读完《魔戒》后开放（可把上方剧透等级调到「读完魔戒」）。',
+      tierLockedDifferences: '原著与改编的差异涉及剧情走向，读完《魔戒》后开放（可把上方剧透等级调到「读完魔戒」）。',
+      tierLockedQuotes: '名句原文多为 tier-2 内容，读完《魔戒》后开放；人物卡里的安全词句仍可见。',
+      tierRaise: '提升剧透等级',
       viewDetail: '查看档案',
       noResults: '暂无结果',
       // dossier
@@ -743,6 +748,7 @@ window.__ModuleLoader__.load({
       progressCast: 'You will meet',
       progressEvents: 'Key events',
       progressLocked: 'Not read yet',
+      progressLockedHint: 'This work is locked at your current spoiler tier: raise the tier above or follow the reading order below to unlock it.',
       progressJourney: 'Storyline',
       progressJourneyNone: 'No visible scenes',
       progressFocus: 'Driving',
@@ -779,6 +785,10 @@ window.__ModuleLoader__.load({
       allFactions: 'All factions', allWorks: 'All works', allKinds: 'All roles',
       resultCount: '{n} results', clearFilters: 'Clear filters',
       empty: 'Nothing matched', emptyHint: 'Try another keyword or clear the filters.',
+      tierLockedThemes: 'The thematic debates turn on endings and choices — they open once you have read The Lord of the Rings (raise the spoiler tier above).',
+      tierLockedDifferences: 'The book-vs-screen differences reveal plot turns — they open once you have read The Lord of the Rings (raise the spoiler tier above).',
+      tierLockedQuotes: 'Full quote texts are tier-2 content and open after The Lord of the Rings; safe lines on character cards stay visible.',
+      tierRaise: 'Raise spoiler tier',
       viewDetail: 'View profile', noResults: 'No results',
       dossier: 'Character profile', relations: 'Key relationships', works: 'Appearances',
       appearances: 'Related events', placesOf: 'Places', artifactsOf: 'Artifacts',
@@ -1230,7 +1240,7 @@ window.__ModuleLoader__.load({
             key: p.id, className: 'mea-miniitem',
             onClick: () => onOpen('place', p.id),
           }, h('div', null, h('b', null, p.name),
-            h('small', null, p.type + ' · ' + p.summary)))))
+            h('small', null, p.type + (p.summary ? ' · ' + p.summary : ''))))))
         : null
 
       const artifacts = artifactsList.length
@@ -1240,13 +1250,16 @@ window.__ModuleLoader__.load({
             key: a.id, className: 'mea-miniitem',
             onClick: () => onOpen('artifact', a.id),
           }, h('div', null, h('b', null, a.name),
-            h('small', null, a.type + ' · ' + a.summary)))))
+            h('small', null, a.type + (a.summary ? ' · ' + a.summary : ''))))))
         : null
 
-      const quotes = quotesList.length
+      // Quote text is a tier-2 field: at tier 1 the masked entries carry no
+      // text, so only quotes that survived gating are rendered.
+      const visibleQuotes = quotesList.filter((q) => q.text)
+      const quotes = visibleQuotes.length
         ? h('div', { className: 'mea-section' },
           h('h4', null, t('quotesOf')),
-          ...quotesList.map((q) => h('div', { key: q.id, className: 'mea-quote' },
+          ...visibleQuotes.map((q) => h('div', { key: q.id, className: 'mea-quote' },
             '“' + q.text + '”', h('cite', null, q.context))))
         : null
 
@@ -1374,7 +1387,9 @@ window.__ModuleLoader__.load({
           quick('places', '🏔️', t('tabPlaces'), t('ovPlaces') + '：' + c.places),
           quick('ask', '💬', t('tabAsk'), t('askTitle'))))
 
-      const quoteCards = data.quotes.slice(0, 3).map((q) => {
+      // Quote text is a tier-2 field; at tier 1 only gated-in quotes render.
+      const visibleQuotes = data.quotes.filter((q) => q.text).slice(0, 3)
+      const quoteCards = visibleQuotes.map((q) => {
         const sp = data.characters.find((x) => x.id === q.speaker)
         return h('div', { key: q.id, className: 'mea-quote' },
           '“' + q.text + '”',
@@ -1868,7 +1883,9 @@ window.__ModuleLoader__.load({
         h('div', { className: 'mea-en' }, g.termEn + ' · ' + g.category),
         h('p', null, g.definition)))
 
-      const quoteCards = data.quotes.map((q) => {
+      // Quote text is a tier-2 field; at tier 1 only gated-in quotes render.
+      const visibleQuotes = data.quotes.filter((q) => q.text)
+      const quoteCards = visibleQuotes.map((q) => {
         const sp = data.characters.find((x) => x.id === q.speaker)
         return h('div', {
           key: q.id,
@@ -1892,13 +1909,16 @@ window.__ModuleLoader__.load({
             }, '— ' + (sp ? sp.name : q.speaker)),
             ' · ' + q.context + ' · ' + q.canon))
       })
+      const quoteGrid = quoteCards.length
+        ? h('div', { className: 'mea-two' }, ...quoteCards)
+        : h('p', { className: 'mea-empty' }, t('tierLockedQuotes'))
 
       return h(React.Fragment, null,
         h('p', { className: 'mea-kicker' }, t('loreHint')),
         h('h3', { className: 'mea-h3sm', style: { marginTop: 4 } }, '📖 ' + t('glossaryTitle')),
         h('div', { className: 'mea-grid' }, ...glossaryCards),
         h('h3', { className: 'mea-h3sm', style: { marginTop: 24 } }, '✨ ' + t('quotesTitle')),
-        h('div', { className: 'mea-two' }, ...quoteCards))
+        quoteGrid)
     }
 
     /* ------------------------------------------------------------------ *
@@ -1993,7 +2013,18 @@ window.__ModuleLoader__.load({
     /* ------------------------------------------------------------------ *
      * Differences tab
      * ------------------------------------------------------------------ */
-    const DiffTab = ({ data, t }) => {
+    const DiffTab = ({ data, t, spoilerTier }) => {
+      if (!data.differences.length) {
+        return h(React.Fragment, null,
+          h('p', { className: 'mea-kicker' }, t('diffHint')),
+          h('div', { className: 'mea-empty' },
+            h('div', null, t('tierLockedDifferences')),
+            h('button', {
+              className: 'mea-chip mea-on',
+              style: { marginTop: 8 },
+              onClick: () => setSpoilerTier(Math.min(2, spoilerTier + 1)),
+            }, t('tierRaise'))))
+      }
       const cards = data.differences.map((d) => h('div', { key: d.id, className: 'mea-diffcard' },
         h('h3', null, d.topic),
         h('div', { className: 'mea-drow' },
@@ -2071,7 +2102,7 @@ window.__ModuleLoader__.load({
     /* ------------------------------------------------------------------ *
      * Themes tab — three defensible positions, no verdict
      * ------------------------------------------------------------------ */
-    const ThemesTab = ({ t, spoilerTier }) => {
+    const ThemesTab = ({ t, spoilerTier, setSpoilerTier }) => {
       const [themes, setThemes] = React.useState(null)
       const [failed, setFailed] = React.useState(false)
 
@@ -2089,7 +2120,17 @@ window.__ModuleLoader__.load({
         return h('div', { className: 'mea-loading', style: { height: 'auto', paddingTop: 40 } },
           h('div', { className: 'mea-spin', 'aria-hidden': 'true' }, '💍'), h('div', null, t('loading')))
       }
-      if (!themes.length) return h('div', { className: 'mea-empty' }, t('empty'))
+      if (!themes.length) {
+        return h(React.Fragment, null,
+          h('p', { className: 'mea-kicker' }, t('themeHint')),
+          h('div', { className: 'mea-empty' },
+            h('div', null, t('tierLockedThemes')),
+            h('button', {
+              className: 'mea-chip mea-on',
+              style: { marginTop: 8 },
+              onClick: () => setSpoilerTier(spoilerTier < 2 ? 2 : 3),
+            }, t('tierRaise'))))
+      }
 
       return h(React.Fragment, null,
         h('p', { className: 'mea-kicker' }, t('themeHint')),
@@ -2213,6 +2254,9 @@ window.__ModuleLoader__.load({
             h('span', { className: 'mea-badge' }, w.locked ? t('progressLocked') : w.canon)),
           h('div', { className: 'mea-kicker', style: { marginTop: 6 } },
             t('progressCast') + ' · ' + w.castCount + ' / ' + t('progressEvents') + ' ' + w.eventCount),
+          w.locked
+            ? h('div', { className: 'mea-kicker', style: { marginTop: 4 } }, t('progressLockedHint'))
+            : null,
           castButtons)
       })
 
@@ -2320,7 +2364,7 @@ window.__ModuleLoader__.load({
             }, label))),
           tab === 'overview' && h(OverviewTab, { data, t, go: setTab, open }),
           tab === 'avatar' && h(AvatarTabView, { data, t }),
-          tab === 'themes' && h(ThemesTab, { t, spoilerTier }),
+          tab === 'themes' && h(ThemesTab, { t, spoilerTier, setSpoilerTier }),
           tab === 'analysis' && h(AnalysisTab, { t }),
           tab === 'progress' && h(ProgressTab, { t, spoilerTier, open }),
           tab === 'characters' && h(CharactersTab, { data, t, open, spoilerTier }),
@@ -2330,7 +2374,7 @@ window.__ModuleLoader__.load({
           tab === 'lore' && h(LoreTab, { data, t, open }),
           tab === 'plot' && h(PlotTab, { data, t }),
           tab === 'paths' && h(PathsTab, { data, t }),
-          tab === 'diff' && h(DiffTab, { data, t }),
+          tab === 'diff' && h(DiffTab, { data, t, spoilerTier, setSpoilerTier }),
           tab === 'ask' && h(AskTab, { t, spoilerTier }),
           h('div', { className: 'mea-footer' }, t('footer'))),
         drawer && h(Drawer, {

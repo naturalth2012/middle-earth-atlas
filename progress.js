@@ -57,6 +57,20 @@ export function readingProgress(maxTier) {
         .sort((a, b) => b.relations - a.relations || a.name.localeCompare(b.name))
 
       const events = EVENTS.filter((e) => (e.works || []).includes(workId))
+      // Locked works keep only counts: their event titles are the spoilers
+      // the tier system exists to hide (RECORD_TIER gates several of them).
+      const locked = !covered.includes(workId)
+      // A visible work still hides individual gated events: titles like
+      // 「伊西铎之死与魔戒失落」(RECORD_TIER 3) must not show at tier 2.
+      const eventTitles = locked
+        ? []
+        : events
+          .filter((e) => {
+            const recordCap = RECORD_TIER[e.id]
+            return !(typeof recordCap === 'number' && recordCap > cap)
+          })
+          .slice(0, 5)
+          .map((e) => e.title)
       return {
         index: index + 1,
         work: workId,
@@ -64,11 +78,11 @@ export function readingProgress(maxTier) {
         kind: work ? work.kind : '',
         canon: work ? work.canon : '',
         tier: workId === 'silmarillion' ? 3 : workId === 'lotr-book' ? 2 : 1,
-        locked: !covered.includes(workId),
+        locked,
         castCount: cast.length,
-        cast: cast.slice(0, 8),
+        cast: locked ? [] : cast.slice(0, 8),
         eventCount: events.length,
-        eventTitles: events.slice(0, 5).map((e) => e.title),
+        eventTitles,
       }
     }),
     totalWorks: READING_ORDER.length,
@@ -108,8 +122,13 @@ export function characterJourney(idOrName, maxTier) {
     .sort((a, b) => (a.order || 999) - (b.order || 999))
 
   const beats = relevant.map((e) => {
-    const tier = typeof RECORD_TIER[e.id] === 'number' ? RECORD_TIER[e.id] : 3
-    const locked = tier > cap
+    // Same field-whitelist semantics as the dossier layer: a field is visible
+    // when the reader's ceiling reaches the tier the FIELD_SAFETY whitelist
+    // assigns it (event title/desc are tier 3). A record whose RECORD_TIER
+    // override is lower unlocks early; events without an override need tier 3.
+    const recordCap = typeof RECORD_TIER[e.id] === 'number' ? RECORD_TIER[e.id] : 3
+    const locked = recordCap > cap
+    const showText = cap >= 3 && !locked
     // Text matching alone would label almost every event 'present', because
     // many Chinese event titles name the outcome rather than the people. Use
     // the curated characters[] position as a second signal: the first listed
@@ -124,16 +143,16 @@ export function characterJourney(idOrName, maxTier) {
       order: e.order,
       age: e.age,
       year: e.year,
-      title: e.title,
-      tier,
+      tier: recordCap,
       locked,
       role,
-      description: locked ? null : e.desc,
-      people: locked ? [] : (e.characters || [])
+      title: showText ? e.title : null,
+      description: showText ? e.desc : null,
+      people: showText ? (e.characters || [])
         .map((pid) => CHARACTER_BY_ID[pid] && CHARACTER_BY_ID[pid].name)
-        .filter(Boolean),
-      works: locked ? [] : (e.works || [])
-        .map((wid) => WORK_BY_ID[wid] && WORK_BY_ID[wid].title).filter(Boolean),
+        .filter(Boolean) : [],
+      works: showText ? (e.works || [])
+        .map((wid) => WORK_BY_ID[wid] && WORK_BY_ID[wid].title).filter(Boolean) : [],
     }
   })
 
@@ -161,7 +180,7 @@ export function journeyText(journey) {
     '',
   ]
   for (const b of journey.beats) {
-    if (b.locked) {
+    if (b.locked || !b.title) {
       lines.push(`${b.order}. ${b.age} · ${b.year} — 🔒 后续事件（已隐藏）`)
       continue
     }

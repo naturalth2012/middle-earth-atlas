@@ -377,7 +377,7 @@ export const CHARACTERS = [
     faction: 'elf', factionLabel: '精灵', kind: '第一纪元核心', canon: '原著',
     summary: '芬威之子，精灵宝钻的铸造者；因米尔寇窃取宝钻与双圣树而立下誓约，率诺多精灵离开阿门洲，成为第一纪元所有悲剧的源头。',
     details: '他被称作"精灵中最伟大的工匠"，他亲手打造的精灵宝钻封存了双圣树的光。米尔寇杀害其父芬威并夺走宝钻后，他立下不可撤回的誓约：追索宝钻者，无论亲疏皆为敌。这纸誓约让诺多精灵付出惨重代价。',
-    fate: '在愤怒之战前死于半兽人之手，其遗体因拒绝放弃宝钻而在火中破碎。',
+    fate: '在达戈·努因·吉利亚斯（晨露之战）后的追击中被炎魔所伤而死，其魂如火之炽烈，遗体随即化为灰烬。',
     relations: [
       { to: 'finwe', type: 'family', label: '父亲' },
       { to: 'maedhros', type: 'family', label: '长子' },
@@ -391,7 +391,7 @@ export const CHARACTERS = [
     id: 'finwe', name: '芬威', nameEn: 'Finwë', alias: ['诺多至高王'],
     faction: 'elf', factionLabel: '精灵', kind: '第一纪元核心', canon: '原著',
     summary: '诺多精灵的第一位至高王，费诺之父；在米尔寇袭击提里安、窃取精灵宝钻时被杀，他的死直接点燃了费诺的怒火。',
-    details: '他是第一位跟随维拉前往阿门洲的诺多王，领导精灵建造了提里安城。在第二任妻子死后，他的家庭成为诺多王室分裂的根源。',
+    details: '他是第一位跟随维拉前往阿门洲的诺多王，领导精灵建造了提里安城。首任妻子米瑞尔（Míriel）早逝后他再娶印迪丝（Indis），两位妻子所出儿子之间的嫌隙，成为日后诺多王室分裂的根源。',
     fate: '在双圣树被毁之夜被米尔寇杀害于提里安。',
     relations: [
       { to: 'feanor', type: 'family', label: '儿子' },
@@ -405,7 +405,7 @@ export const CHARACTERS = [
     faction: 'man', factionLabel: '人类', kind: '第一纪元核心', canon: '原著',
     summary: '人类英雄，为赢得露西恩的芳心，向她父亲多瑞亚斯王提出取回一颗精灵宝钻的几乎不可能的任务。',
     details: '他与露西恩的爱情是《精灵宝钻》最动人的篇章之一。在露西恩的帮助下，他从安格班夺回一颗宝钻，却失去了手——因此得名"独手"。',
-    fate: '战死于对抗半兽人的战斗，后与露西恩一同获准重生。',
+    fate: '在猎杀巨狼卡哈洛斯（Carcharoth）时被其咬伤而死——那只狼咬断了他持宝钻的手；露西恩随他心碎而逝，二人获维拉恩准以凡人身份重生。',
     relations: [
       { to: 'luthien', type: 'romance', label: '恋人 / 妻子' },
       { to: 'thingol', type: 'conflict', label: '岳父，任务的提出者' },
@@ -458,7 +458,7 @@ export const CHARACTERS = [
     id: 'idriel', name: '伊德瑞尔', nameEn: 'Idril', alias: ['银足'],
     faction: 'elf', factionLabel: '精灵', kind: '第一纪元核心', canon: '原著',
     summary: '贡多林王图尔巩之女，图尔之妻，埃雅仁迪尔之母；她在贡多林陷落中救出儿子，是维拉的眷顾者。',
-    details: '她嫁给人类图尔，生下埃雅仁迪尔。贡多林陷落时，她未能救出丈夫，却带着年幼的儿子逃出，后来在海边为他生下双胞胎。',
+    details: '她嫁给人类图尔，生下埃雅仁迪尔。贡多林陷落时，她早已备好隐秘水道，与图尔一同带着年幼的儿子逃出，后随图尔西航而去。',
     fate: '与图尔一同乘船西航。',
     relations: [
       { to: 'tuor', type: 'romance', label: '丈夫' },
@@ -484,7 +484,7 @@ export const CHARACTERS = [
     tags: ['半精灵', '星辰', '精灵宝钻'],
   },
   {
-    id: 'elros', name: '埃尔洛斯', nameEn: 'Elrós', alias: ['努门诺尔开国之君'],
+    id: 'elros', name: '埃尔洛斯', nameEn: 'Elros', alias: ['努门诺尔开国之君'],
     faction: 'numenor', factionLabel: '努门诺尔人', kind: '第一纪元核心', canon: '原著',
     summary: '埃雅仁迪尔与埃尔温的孪生子，埃尔隆德的兄弟；选择成为凡人，成为努门诺尔第一位国王。',
     details: '作为半精灵，他可以选择归属精灵或人类。他选择了人类的命运，与兄长埃尔隆德的道路从此分开，其血脉后来流传至阿拉贡。',
@@ -500,7 +500,7 @@ export const CHARACTERS = [
     id: 'maedhros', name: '梅斯罗斯', nameEn: 'Maedhros', alias: ['长子'],
     faction: 'elf', factionLabel: '精灵', kind: '第一纪元核心', canon: '原著',
     summary: '费诺长子，诺多王子；在第一次亲族残杀后试图和解，却被俘并失去右手，此后成为抵抗米尔寇的重要统帅。',
-    details: '他曾自愿被缚于安格班的岩壁，后被菲罗米德救出。他主张放弃宝钻归维拉裁定，但家族的誓约使其最终走向悲剧。',
+    details: '他曾自愿被缚于安格班的岩壁，后被芬巩救出。他主张放弃宝钻归维拉裁定，但家族的誓约使其最终走向悲剧。',
     fate: '在愤怒之战后因宝钻的灼烧而亡。',
     relations: [
       { to: 'feanor', type: 'family', label: '父亲' },
@@ -510,7 +510,7 @@ export const CHARACTERS = [
     tags: ['诺多', '费诺之子', '誓约'],
   },
   {
-    id: 'thingol_elf', name: '菲罗米德', nameEn: 'Fingon', alias: ['救赎者'],
+    id: 'fingon', name: '芬巩', nameEn: 'Fingon', alias: ['英勇者'],
     faction: 'elf', factionLabel: '精灵', kind: '第一纪元核心', canon: '原著',
     summary: '诺多王子，梅斯罗斯的挚友；他射断了束缚梅斯罗斯的锁链，救回这位同族，是诺多中最受爱戴的王子之一。',
     details: '他在费诺死后成为诺多的重要领袖，以琴艺与勇气著称。他在对抗米尔寇的战斗中战死。',
@@ -1126,7 +1126,7 @@ export const EVENTS = [
   { order: 2, id: 'sil1', age: '第一纪元', year: '远古', title: '双圣树的凋零与宝钻被盗', desc: '米尔寇憎恨双圣树的光，联合蜘蛛昂哥立安摧毁了它们，随后杀害芬威并夺走费诺铸造的精灵宝钻。', works: ['silmarillion'], characters: ['feanor', 'finwe', 'galadriel'], importance: 3 },
   { order: 3, id: 'sil2', age: '第一纪元', year: '远古', title: '费诺的誓约与诺多出走', desc: '费诺立下不可撤回的誓约，率诺多精灵离开阿门洲中土追索宝钻；这一决定埋下此后所有亲族残杀的种子。', works: ['silmarillion'], characters: ['feanor', 'maedhros', 'galadriel', 'finwe'], importance: 3 },
   { order: 4, id: 'sil3', age: '第一纪元', year: '远古', title: '第一次亲族残杀', desc: '费诺的族人袭击了泰勒瑞精灵的船队，只为夺船渡海；死者的鲜血成为诺多永远无法洗清的罪。', works: ['silmarillion'], characters: ['feanor', 'maedhros'], importance: 2 },
-  { order: 5, id: 'sil4', age: '第一纪元', year: '远古', title: '安格班的围困与梅斯罗斯被俘', desc: '诺多围攻米尔寇的安格班要塞多年；梅斯罗斯被俘后被缚于岩壁，其挚友菲罗米德射断锁链救他归来。', works: ['silmarillion'], characters: ['maedhros', 'thingol_elf', 'turgon'], importance: 2 },
+  { order: 5, id: 'sil4', age: '第一纪元', year: '远古', title: '安格班的围困与梅斯罗斯被俘', desc: '诺多围攻米尔寇的安格班要塞多年；梅斯罗斯被俘后被缚于岩壁，其挚友芬巩射断锁链救他归来。', works: ['silmarillion'], characters: ['maedhros', 'fingon', 'turgon'], importance: 2 },
   { order: 6, id: 'sil5', age: '第一纪元', year: '远古', title: '多瑞亚斯的建立', desc: '庭葛与梅里安建立多瑞亚斯王国，其女儿露西恩长大后成为世间最美的生灵。', works: ['silmarillion'], characters: ['thingol', 'luthien'], importance: 2 },
   { order: 7, id: 'sil6', age: '第一纪元', year: '远古', title: '贝伦与露西恩', desc: '人类贝伦爱上精灵露西恩，庭葛要求他取回一颗精灵宝钻作为考验；两人携手闯入安格班。', works: ['silmarillion'], characters: ['beren', 'luthien', 'thingol'], importance: 3 },
   { order: 8, id: 'sil7', age: '第一纪元', year: '远古', title: '露西恩征服安格班', desc: '露西恩以歌声使米尔寇沉睡，唱断安格班的锁链；她与贝伦带着宝钻逃离，贝伦从此失去一手。', works: ['silmarillion'], characters: ['luthien', 'beren', 'thingol'], importance: 3 },
@@ -1167,7 +1167,7 @@ export const EVENTS = [
   { order: 43, id: 'e22', age: '第三纪元', year: 'TA 3019', title: '黑门之战', desc: '阿拉贡率残军于黑门挑战索伦，为弗罗多争取时间；众人在绝望中坚持到魔戒被毁。', works: ['lotr-book', 'lotr-films'], characters: ['aragorn', 'gandalf', 'legolas', 'gimli', 'merry', 'pippin', 'sauron'], importance: 3 },
   { order: 44, id: 'e23', age: '第三纪元', year: 'TA 3019', title: '末日火山：魔戒毁灭', desc: '弗罗多与山姆抵达末日火山；弗罗多最终拒绝交出魔戒，咕噜夺戒后与之同坠烈焰，索伦败亡。', works: ['lotr-book', 'lotr-films'], characters: ['frodo', 'sam', 'gollum', 'sauron'], importance: 3 },
   { order: 45, id: 'e24', age: '第四纪元', year: 'TA 3019', title: '伊力萨王加冕', desc: '阿拉贡在米那斯提力斯加冕，与阿尔温成婚；刚铎与阿尔诺重新统一。', works: ['lotr-book', 'lotr-films'], characters: ['aragorn', 'arwen', 'faramir', 'eowyn', 'gandalf'], importance: 2 },
-  { order: 46, id: 'e25', age: '第四纪元', year: 'TA 3021', title: '灰港告别与第三纪元终结', desc: '弗罗多、比尔博、甘道夫、凯兰崔尔与埃尔隆德从灰港西渡；精灵时代落幕，人类时代开始。', works: ['lotr-book', 'lotr-films'], characters: ['frodo', 'bilbo', 'gandalf', 'galadriel', 'elrond', 'sam', 'merry', 'pippin', 'aragorn'], importance: 3 },
+  { order: 46, id: 'e25', age: '第四纪元', year: 'TA 3021', title: '灰港告别与第三纪元终结', desc: '弗罗多、比尔博、甘道夫、凯兰崔尔与埃尔隆德从灰港西渡；精灵时代落幕，人类时代开始。', works: ['lotr-book', 'lotr-films'], characters: ['frodo', 'bilbo', 'gandalf', 'galadriel', 'elrond', 'sam', 'merry', 'pippin'], importance: 3 },
 ]
 
 /** Curated reading / watching paths. */

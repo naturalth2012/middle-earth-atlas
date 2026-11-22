@@ -1688,7 +1688,9 @@ window.__ModuleLoader__.load({
           style: { marginTop: 10, fontSize: 12.5, color: 'var(--dsw-alias-label-secondary)' },
         },
           h('b', { style: { color: 'var(--dsw-alias-label-primary)' } }, hover.label),
-          ' · ' + hover.degree + ' 条关系 · ' + hover.summary)
+          hover.summary
+            ? ' · ' + (hover.degree || 0) + ' 条关系 · ' + hover.summary
+            : ' · 🔒 剧透锁定')
         : null
 
       return h(React.Fragment, null,
@@ -1925,6 +1927,10 @@ window.__ModuleLoader__.load({
               style: { color: 'var(--dsw-alias-brand-primary)', fontSize: 11.5, marginTop: 3 },
             }, b.event.age + ' · ' + b.event.year)
             : null
+          if (b.locked) {
+            return h('li', { key: b.id, 'data-step': i + 1, className: 'mea-locked' },
+              h('b', null, '🔒 剧透锁定'), when)
+          }
           return h('li', { key: b.id, 'data-step': i + 1 },
             h('b', null, b.title), h('p', null, b.desc), when)
         })
@@ -1945,8 +1951,8 @@ window.__ModuleLoader__.load({
           }
         })
         return h('div', { key: j.id, className: 'mea-pathcard' },
-          h('h3', null, j.icon + ' ' + j.name),
-          h('div', { className: 'mea-blurb' }, j.desc),
+          h('h3', null, j.icon + ' ' + j.name + (j.locked ? ' 🔒' : '')),
+          j.desc ? h('div', { className: 'mea-blurb' }, j.desc) : null,
           h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6 } }, ...stops))
       })
 

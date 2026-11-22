@@ -49,7 +49,7 @@
 | 46-event timeline | 46 | ✅ |
 | 33 places | 33 | ✅ |
 | 14 artifacts | 14 | ✅ |
-| 40 quotes | 40 | ✅ |
+| 39 quotes | 39 | ✅ |
 | 17 playable avatar journeys | 17 | ✅ |
 | 12 agent tools | 12 | ✅ |
 | three-sided dialectics | 7 组，每组恰 3 方 | ✅ |

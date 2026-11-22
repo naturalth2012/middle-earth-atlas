@@ -31,8 +31,8 @@ url: https://github.com/naturalth2012/middle-earth-atlas
 name: naturalth2012/middle-earth-atlas
 category: fun
 description:
-  en: 'An explorable atlas of The Hobbit, The Lord of the Rings and The Silmarillion: 68 characters with 236 curated relationships, a 46-event timeline across the Ages, 33 places, 14 artifacts, 40 quotes and a force-directed relationship graph with centrality analysis. Includes reading-progress views, three-sided thematic dialectics, book-vs-screen differences, and 17 playable avatar journeys with spoiler-gated choices. Unofficial study guide; not affiliated with any rights holder.'
-  zh: '《霍比特人》《魔戒》《精灵宝钻》可探索图鉴：68 位人物与 236 条关系、46 个纪元事件、33 个地点、14 件宝物、40 句名句，以及带中心性分析的关系图谱。含阅读进度视图、三方主题辩证、原著与改编差异，以及 17 位可扮演角色的剧情旅程。非官方导读工具，与任何权利方无关。'
+  en: 'An explorable atlas of The Hobbit, The Lord of the Rings and The Silmarillion: 68 characters with 236 curated relationships, a 46-event timeline across the Ages, 33 places, 14 artifacts, 39 quotes and a force-directed relationship graph with centrality analysis. Includes reading-progress views, three-sided thematic dialectics, book-vs-screen differences, and 17 playable avatar journeys with spoiler-gated choices. Unofficial study guide; not affiliated with any rights holder.'
+  zh: '《霍比特人》《魔戒》《精灵宝钻》可探索图鉴：68 位人物与 236 条关系、46 个纪元事件、33 个地点、14 件宝物、39 句名句，以及带中心性分析的关系图谱。含阅读进度视图、三方主题辩证、原著与改编差异，以及 17 位可扮演角色的剧情旅程。非官方导读工具，与任何权利方无关。'
 icon: https://raw.githubusercontent.com/naturalth2012/middle-earth-atlas/main/assets/icon-180.png
 ```
 
@@ -47,7 +47,7 @@ icon: https://raw.githubusercontent.com/naturalth2012/middle-earth-atlas/main/as
 | 46-event timeline | 46 | ✓ |
 | 33 places | 33 | ✓ |
 | 14 artifacts | 14 | ✓ |
-| 40 quotes | 40 | ✓ |
+| 39 quotes | 39 | ✓ |
 | 17 playable avatar journeys | 17 | ✓ |
 | force-directed graph + centrality | analysis.js 有 Brandes 中介中心性 | ✓ |
 | reading-progress views | progress.js + 路由 | ✓ |
@@ -70,7 +70,7 @@ Rings and The Silmarillion into an explorable knowledge graph.
 
 - 68 characters, 236 curated relationships, force-directed graph with degree
   and betweenness centrality
-- 46-event timeline, 33 places, 14 artifacts, 40 quotes
+- 46-event timeline, 33 places, 14 artifacts, 39 quotes
 - 7 three-sided thematic dialectics, book-vs-screen differences
 - reading-progress views and 17 playable avatar journeys with spoiler gating
 - 12 agent tools sharing the same engine as the panel

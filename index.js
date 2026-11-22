@@ -102,7 +102,10 @@ function routeHandler(path, compute) {
       }
       json(res, 200, result)
     } catch (error) {
-      json(res, 500, { error: error instanceof Error ? error.message : String(error) })
+      // Keep internals out of the response body: log to the server console,
+      // the client only needs the fact.
+      console.error('[middle-earth-atlas] route ' + path + ' failed:', error)
+      json(res, 500, { error: 'internal error' })
     }
   }
 }
@@ -322,10 +325,12 @@ export function apply(ctx) {
       async execute(args) {
         const name = (args && args.name) || ''
         const kind = (args && args.kind) || ''
+        // The tool schema advertises maxTier — honour the caller's ceiling.
+        const tier = { maxTier: (args && args.maxTier) }
         const prefer = (k) => !kind || kind === k
 
         if (prefer('character')) {
-          const d = characterDetail(name)
+          const d = characterDetail(name, tier)
           if (d) {
             const lines = [
               `# ${d.name}（${d.nameEn}）`,
@@ -359,7 +364,7 @@ export function apply(ctx) {
           }
         }
         if (prefer('place')) {
-          const p = placeDetail(name)
+          const p = placeDetail(name, tier)
           if (p) {
             return {
               text: [
@@ -371,7 +376,7 @@ export function apply(ctx) {
           }
         }
         if (prefer('artifact')) {
-          const a = artifactDetail(name)
+          const a = artifactDetail(name, tier)
           if (a) {
             return {
               text: [
@@ -383,7 +388,7 @@ export function apply(ctx) {
           }
         }
         if (prefer('glossary')) {
-          const g = glossaryDetail(name)
+          const g = glossaryDetail(name, tier)
           if (g) {
             const lines = [`# ${g.term}（${g.termEn}）`, `${g.category}`, '', g.definition, '', g.detail]
             if (g.related.length) lines.push('', '## 相关人物', ...g.related.map((c) => `- ${c.name}`))
@@ -462,31 +467,32 @@ export function apply(ctx) {
       },
       output: textOutput,
       async execute(args) {
+        const tier = { maxTier: (args && args.maxTier) }
         if (args && args.from && args.to) {
-          const result = relationPath(args.from, args.to)
+          const result = relationPath(args.from, args.to, tier)
           if (!result.ok) return { text: result.error || '未找到关系路径。' }
           return {
             text: `关系路径（${result.hops} 跳）：\n`
-              + result.steps.map((s, i) => `${i + 1}. ${s.from} —[${s.label}]→ ${s.to}`).join('\n'),
+              + result.steps.map((s, i) => `${i + 1}. ${s.from} —[${s.label || '已隐藏'}]→ ${s.to}`).join('\n'),
           }
         }
         if (args && args.focus) {
-          const n = neighbors(args.focus)
+          const n = neighbors(args.focus, tier)
           if (!n) return { text: '没有找到这个角色。' }
           const lines = [`**${n.character.name}** 的关系（${Object.values(n.groups).reduce((a, g) => a + g.length, 0)} 条）`]
           for (const [type, items] of Object.entries(n.groups)) {
             const label = items[0] ? items[0].typeLabel : type
-            lines.push(`- ${label}：` + items.map((i) => `${i.name}（${i.label}）`).join('、'))
+            lines.push(`- ${label}：` + items.map((i) => `${i.name}${i.label ? `（${i.label}）` : '（🔒）'}`).join('、'))
           }
           return { text: lines.join('\n') }
         }
-        const g = buildGraph({ faction: args && args.faction })
-        const top = [...g.nodes].sort((a, b) => b.degree - a.degree).slice(0, 8)
+        const g = buildGraph({ faction: args && args.faction, maxTier: args && args.maxTier })
+        const top = [...g.nodes].sort((a, b) => (b.degree || 0) - (a.degree || 0)).slice(0, 8)
         return {
           text: [
             `关系图谱：${g.nodes.length} 个角色，${g.edges.length} 条关系。`,
             '', '关系最多的角色：',
-            ...top.map((n, i) => `${i + 1}. ${n.label}（${n.degree} 条）`),
+            ...top.map((n, i) => `${i + 1}. ${n.label}（${n.degree || 0} 条）`),
           ].join('\n'),
         }
       },
@@ -589,7 +595,7 @@ export function apply(ctx) {
       },
       output: textOutput,
       async execute(args) {
-        const result = judgeJourney((args && args.name) || '', (args && args.choices) || [])
+        const result = judgeJourney((args && args.name) || '', (args && args.choices) || [], { maxTier: args && args.maxTier })
         if (!result) return { text: '没有找到这个可扮演的角色。' }
         const lines = [
           `**${result.name}** 的旅程评分：${result.verdict}`,
@@ -633,7 +639,7 @@ export function apply(ctx) {
         if (req.method === 'GET') {
           const params = readQuery(req, CLIENT_ERROR_PATH + '/report')
           recordClientError({
-            message: params.get('message') || '',
+            message: (params.get('message') || '').slice(0, 500),
             stack: (params.get('stack') || '').slice(0, 2000),
             context: params.get('context') || 'window.onerror',
           })
@@ -657,7 +663,8 @@ export function apply(ctx) {
       counts: counts(),
     }), 'middle-earth-atlas: search route')
 
-    register(ALL_PATH, (p) => searchAll(p.get('q') || ''), 'middle-earth-atlas: universal search route')
+    register(ALL_PATH, (p) => searchAll(p.get('q') || '', { maxTier: p.get('maxTier') }),
+      'middle-earth-atlas: universal search route')
 
     register(DETAIL_PATH, (p) => characterDetail(p.get('id') || p.get('q') || '', { maxTier: p.get('maxTier') })
       || { error: '没有找到该角色' }, 'middle-earth-atlas: detail route')
@@ -676,12 +683,13 @@ export function apply(ctx) {
       ids: list(p.get('ids')),
       faction: p.get('faction') || undefined,
       age: p.get('age') || undefined,
+      maxTier: p.get('maxTier'),
     }), 'middle-earth-atlas: graph route')
 
     register(NEIGHBORS_PATH, (p) => neighbors(p.get('id') || p.get('q') || '', { maxTier: p.get('maxTier') })
       || { error: '没有找到该角色' }, 'middle-earth-atlas: neighbors route')
 
-    register(PATH_PATH, (p) => relationPath(p.get('from') || '', p.get('to') || ''),
+    register(PATH_PATH, (p) => relationPath(p.get('from') || '', p.get('to') || '', { maxTier: p.get('maxTier') }),
       'middle-earth-atlas: relation path route')
 
     register(TIMELINE_PATH, (p) => timeline({
@@ -691,10 +699,10 @@ export function apply(ctx) {
       maxTier: p.get('maxTier'),
     }), 'middle-earth-atlas: timeline route')
 
-    register(PLOT_PATH, (p) => ({ plots: plot({ work: p.get('work') || undefined }) }),
+    register(PLOT_PATH, (p) => ({ plots: plot({ work: p.get('work') || undefined, maxTier: p.get('maxTier') }) }),
       'middle-earth-atlas: plot route')
 
-    register(JOURNEYS_PATH, (p) => ({ journeys: journeys({ work: p.get('work') || undefined }) }),
+    register(JOURNEYS_PATH, (p) => ({ journeys: journeys({ work: p.get('work') || undefined, maxTier: p.get('maxTier') }) }),
       'middle-earth-atlas: journeys route')
 
     register(PROGRESS_PATH, (p) => readingProgress(p.get('maxTier')),
@@ -706,7 +714,10 @@ export function apply(ctx) {
     }, 'middle-earth-atlas: character journey route')
 
     register(THEMES_PATH, (p) => {
-      const maxTier = Number(p.get('maxTier')) || MAX_TIER
+      // Clamp through normalizeTier semantics: anything non-numeric / out of
+      // range falls back to MAX_TIER, like every other route.
+      const raw = Number(p.get('maxTier'))
+      const maxTier = Number.isFinite(raw) ? Math.max(1, Math.min(MAX_TIER, Math.round(raw))) : MAX_TIER
       const themes = THEMES.filter((x) => (x.tier || MAX_TIER) <= maxTier)
       return { themes, total: THEMES.length, visible: themes.length, maxTier }
     }, 'middle-earth-atlas: themes route')
@@ -722,7 +733,7 @@ export function apply(ctx) {
     }), 'middle-earth-atlas: spoiler tiers route')
 
     register(ASK_PATH, (p) => ({
-      answer: ask(p.get('q') || ''),
+      answer: ask(p.get('q') || '', { maxTier: p.get('maxTier') }),
       suggestions: suggestions(),
     }), 'middle-earth-atlas: ask route')
 
@@ -735,8 +746,9 @@ export function apply(ctx) {
       return journey || { error: '没有找到这个可扮演的角色' }
     }, 'middle-earth-atlas: avatar journey route')
 
-    // Scoring is a POST because it carries the whole choice list; GET with a
-    // compact query is supported too so the browser can link to a result.
+    // Scoring reads the whole choice list; GET with a compact query is
+    // supported so the browser can link to a result (routeHandler only
+    // accepts GET/HEAD).
     register(AVATAR_JUDGE_PATH, (p) => {
       const id = p.get('id') || ''
       let choices = []
@@ -745,7 +757,7 @@ export function apply(ctx) {
       } catch {
         return { error: 'choices 不是合法的 JSON' }
       }
-      const result = judgeJourney(id, choices)
+      const result = judgeJourney(id, choices, { maxTier: p.get('maxTier') })
       return result || { error: '没有找到这个可扮演的角色' }
     }, 'middle-earth-atlas: avatar judge route')
   })

@@ -67,6 +67,12 @@ export const FIELD_SAFETY = {
     tier2: ['text'],
     tier3: ['context', 'textEn'],
   },
+  work: {
+    safe: ['id', 'name', 'nameEn', 'kind', 'type', 'title', 'titleEn', 'year', 'author',
+      'byline', 'canon', 'media', 'tone', 'readingHours'],
+    tier2: ['summary'],
+    tier3: [],
+  },
 }
 
 /**
@@ -84,6 +90,8 @@ export const RECORD_TIER = {
   gandalf: 2,    // 化为白袍、随精灵西渡
   boromir: 3,    // 「后在保卫梅里与皮平战中牺牲」
   theoden: 3,    // 「战死于帕兰诺平原」
+  thorin: 3,     // 「五军之战中战死，葬于孤山，阿肯宝石随葬」
+  celebrimbor: 3, // 「被索伦俘获、折磨并杀害，尸体被挂在旗杆上」
   gollum: 3,     // 「最终在末日火山夺回魔戒并与之同归于尽」
   frodo: 3,      // 「随其坠入烈焰」/「重伤后西渡」
   sam: 3,        // 「成为夏尔市长」— 结局之一

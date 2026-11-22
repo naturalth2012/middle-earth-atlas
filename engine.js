@@ -99,11 +99,13 @@ export function searchAll(query = '', options = {}) {
   for (const hit of hits) {
     const described = describe(kindOf(hit.kind), hit.id)
     if (!described) continue
-    // Map the internal kind name onto the gating vocabulary.
+    // Map the internal kind name onto the gating vocabulary. `work` is now a
+    // first-class gated kind too — previously its summary slipped through raw.
     const gateKind = hit.kind === 'character' ? 'character'
       : hit.kind === 'place' ? 'place'
         : hit.kind === 'artifact' ? 'artifact'
-          : hit.kind === 'glossary' ? 'glossary' : null
+          : hit.kind === 'glossary' ? 'glossary'
+            : hit.kind === 'work' ? 'work' : null
     const payload = gateKind ? maskRecord(gateKind, described, maxTier) : described
     byKind[hit.kind] = byKind[hit.kind] || []
     byKind[hit.kind].push(payload)
@@ -212,18 +214,37 @@ export function buildGraph(options = {}) {
   edges.forEach((e) => { used.add(e.source); used.add(e.target) })
   if (!used.size && focus && CHARACTER_BY_ID[focus]) used.add(focus)
 
-  const nodes = CHARACTERS.filter((c) => used.has(c.id)).map((c) => ({
-    id: c.id, label: c.name, nameEn: c.nameEn, faction: c.faction,
-    factionColor: FACTIONS_BY_ID[c.faction] ? FACTIONS_BY_ID[c.faction].color : '#888',
-    kind: c.kind, canon: c.canon, summary: c.summary,
-    degree: edges.filter((e) => e.source === c.id || e.target === c.id).length,
-  }))
+  // Spoiler gate: a node's summary is tier-2 content, and a record whose own
+  // ceiling (RECORD_TIER) is above the reader's hides it entirely; edge labels
+  // name outcomes ("被其杀害夺戒"), so they hide with the record.
+  const maxTier = normalizeTier(options.maxTier)
+  const nodeHidden = (id) => {
+    const recordCap = RECORD_TIER[id]
+    return typeof recordCap === 'number' && recordCap > maxTier
+  }
+  const gatedEdges = edges.map((e) => (nodeHidden(e.source) || nodeHidden(e.target)
+    ? { ...e, label: '' }
+    : e))
+  const gatedNodes = CHARACTERS.filter((c) => used.has(c.id))
+    .map((c) => {
+      const hidden = nodeHidden(c.id)
+      if (hidden) return { id: c.id, label: c.name, nameEn: c.nameEn, faction: c.faction,
+        factionColor: FACTIONS_BY_ID[c.faction] ? FACTIONS_BY_ID[c.faction].color : '#888',
+        kind: c.kind, canon: c.canon, locked: true }
+      return {
+        id: c.id, label: c.name, nameEn: c.nameEn, faction: c.faction,
+        factionColor: FACTIONS_BY_ID[c.faction] ? FACTIONS_BY_ID[c.faction].color : '#888',
+        kind: c.kind, canon: c.canon, summary: c.summary,
+        degree: edges.filter((e) => e.source === c.id || e.target === c.id).length,
+      }
+    })
 
   return {
-    nodes, edges,
+    nodes: gatedNodes, edges: gatedEdges,
     relationTypes: RELATION_TYPES,
     focus: focus || null,
     factions: FACTIONS,
+    maxTier,
     generatedAt: new Date().toISOString(),
   }
 }
@@ -233,14 +254,20 @@ export function neighbors(idOrName, options = {}) {
   const maxTier = normalizeTier(options.maxTier)
   const c = resolveCharacter(idOrName)
   if (!c) return null
+  // Relation labels can name outcomes ("被其杀害夺戒"), so a neighbour whose
+  // own record ceiling exceeds the reader's shows as locked, without its label.
   const groups = {}
   for (const rel of c.relations || []) {
     const other = CHARACTER_BY_ID[rel.to]
     if (!other) continue
+    const recordCap = RECORD_TIER[other.id]
+    const locked = typeof recordCap === 'number' && recordCap > maxTier
     groups[rel.type] = groups[rel.type] || []
     groups[rel.type].push({
       id: other.id, name: other.name, nameEn: other.nameEn,
-      label: rel.label, typeLabel: RELATION_TYPES[rel.type] ? RELATION_TYPES[rel.type].label : rel.type,
+      locked,
+      label: locked ? '' : rel.label,
+      typeLabel: RELATION_TYPES[rel.type] ? RELATION_TYPES[rel.type].label : rel.type,
       color: RELATION_TYPES[rel.type] ? RELATION_TYPES[rel.type].color : '#888',
     })
   }
@@ -350,13 +377,17 @@ function edgeLabelBetween(a, b, adj) {
 }
 
 /** Shortest relation path between two characters (BFS over explicit edges). */
-export function relationPath(from, to) {
+export function relationPath(from, to, options = {}) {
+  const maxTier = normalizeTier(options.maxTier)
   const start = resolveCharacter(from)
   const end = resolveCharacter(to)
   if (!start || !end) {
     return { ok: false, error: '角色不存在：' + (!start ? String(from) : String(to)), from, to }
   }
-  if (start.id === end.id) return { ok: true, path: [start.id], hops: 0, steps: [], people: [toCard(start)] }
+  if (start.id === end.id) {
+    return { ok: true, path: [start.id], hops: 0, steps: [],
+      people: maskList('character', [toCard(start)], maxTier) }
+  }
 
   const adj = adjacency()
   const queue = [[start.id]]
@@ -373,11 +404,20 @@ export function relationPath(from, to) {
         for (let i = 0; i < next.length - 1; i++) {
           const a = CHARACTER_BY_ID[next[i]]
           const b = CHARACTER_BY_ID[next[i + 1]]
-          steps.push({ from: a.name, to: b.name, fromId: a.id, toId: b.id, label: edgeLabelBetween(a.id, b.id, adj) })
+          // A label can name an outcome ("被其杀害夺戒"); hide it when either
+          // endpoint's record ceiling is above the reader's.
+          const capA = RECORD_TIER[a.id]
+          const capB = RECORD_TIER[b.id]
+          const gated = (typeof capA === 'number' && capA > maxTier)
+            || (typeof capB === 'number' && capB > maxTier)
+          steps.push({
+            from: a.name, to: b.name, fromId: a.id, toId: b.id,
+            label: gated ? '' : edgeLabelBetween(a.id, b.id, adj),
+          })
         }
         return {
           ok: true, path: next, hops: next.length - 1, steps,
-          people: next.map((id) => toCard(CHARACTER_BY_ID[id])),
+          people: maskList('character', next.map((id) => toCard(CHARACTER_BY_ID[id])), maxTier),
         }
       }
       queue.push(next)
@@ -416,24 +456,47 @@ export function timeline(options = {}) {
 }
 
 export function plot(options = {}) {
+  const maxTier = normalizeTier(options.maxTier)
   const list = options.work ? PLOT.filter((p) => p.work === options.work) : PLOT
   return list.map((p) => ({
     ...p,
     workTitle: WORK_BY_ID[p.work] ? WORK_BY_ID[p.work].title : p.work,
-    beats: p.beats.map((b) => ({
-      ...b,
-      event: b.event && EVENTS.find((e) => e.id === b.event) ? EVENTS.find((e) => e.id === b.event) : null,
-    })),
+    beats: p.beats.map((b) => {
+      const event = b.event && EVENTS.find((e) => e.id === b.event) ? EVENTS.find((e) => e.id === b.event) : null
+      // A beat whose linked event is above the ceiling shows only its id —
+      // titles/descs of ending beats are exactly the spoilers we hide.
+      const eventCap = event ? RECORD_TIER[event.id] : undefined
+      const locked = Boolean(event && typeof eventCap === 'number' && eventCap > maxTier)
+      return {
+        id: b.id,
+        title: locked ? null : b.title,
+        desc: locked ? null : b.desc,
+        locked,
+        event: event ? maskRecord('event', { ...event }, maxTier) : null,
+      }
+    }),
   }))
 }
 
 export function journeys(options = {}) {
+  const maxTier = normalizeTier(options.maxTier)
   let list = JOURNEYS
   if (options.work) list = list.filter((j) => (j.works || []).includes(options.work))
-  return list.map((j) => ({
-    ...j,
-    workTitles: (j.works || []).map((id) => WORK_BY_ID[id] && WORK_BY_ID[id].title).filter(Boolean),
-  }))
+  // Reading-order gating: each journey is tied to the book(s) it follows; a
+  // journey touching locked works is held back to its stops (place names are
+  // harmless) while desc stays hidden above the ceiling.
+  const covered = maxTier >= 3
+    ? ['hobbit-book', 'lotr-book', 'silmarillion']
+    : maxTier === 2 ? ['hobbit-book', 'lotr-book'] : ['hobbit-book']
+  return list.map((j) => {
+    const locked = !(j.works || []).some((w) => covered.includes(w))
+    return {
+      ...j,
+      desc: locked ? '' : j.desc,
+      locked,
+      workTitles: (j.works || []).map((id) => WORK_BY_ID[id] && WORK_BY_ID[id].title).filter(Boolean),
+    }
+  })
 }
 
 /* ------------------------------------------------------------------ *
@@ -446,7 +509,7 @@ export function journeys(options = {}) {
  * is omitted rather than shown empty.
  */
 export function avatarList(options = {}) {
-  const maxTier = Number(options.maxTier) || 3
+  const maxTier = normalizeTier(options.maxTier)
   const list = []
   for (const avatar of AVATARS) {
     const scenes = avatar.scenes.filter((s) => (s.tier || 3) <= maxTier)
@@ -477,7 +540,7 @@ export function avatarList(options = {}) {
  * round trips; scene details never leak beyond the requested tier.
  */
 export function avatarJourney(idOrName, options = {}) {
-  const maxTier = Number(options.maxTier) || 3
+  const maxTier = normalizeTier(options.maxTier)
   const key = norm(idOrName)
   const avatar = AVATAR_BY_ID[key]
     || AVATARS.find((a) => norm(a.id) === key
@@ -490,11 +553,29 @@ export function avatarJourney(idOrName, options = {}) {
   if (!avatar) return null
 
   const character = CHARACTER_BY_ID[avatar.character]
+  // summary (tier 2) and fate (tier 3) each need BOTH the field's own tier
+  // and the character's record ceiling. Comparing the request against the
+  // ceilings directly — the earlier max() formulation was inverted and showed
+  // frodo's fate at every tier.
+  const recordCap = character ? RECORD_TIER[character.id] : undefined
+  const capSummary = Math.max(2, typeof recordCap === 'number' ? recordCap : 1)
+  const capFate = Math.max(3, typeof recordCap === 'number' ? recordCap : 1)
+  const showSummary = maxTier >= capSummary
+  const showFate = maxTier >= capFate
   const scenes = avatar.scenes
     .filter((s) => (s.tier || 3) <= maxTier)
     .map((scene) => {
       const event = scene.event ? EVENTS.find((e) => e.id === scene.event) : null
       const place = scene.place ? PLACE_BY_ID[scene.place] : null
+      // The embedded event must obey the same gate as the timeline: an event
+      // whose record ceiling is above the reader's disappears; otherwise only
+      // its safe fields (age/year) show below tier 3 — title/desc are tier 3.
+      const eventCap = event ? RECORD_TIER[event.id] : undefined
+      const eventGated = event && typeof eventCap === 'number' && eventCap > maxTier
+      const eventPayload = !event || eventGated ? null
+        : maxTier >= 3
+          ? { id: event.id, title: event.title, age: event.age, year: event.year, desc: event.desc }
+          : { id: event.id, age: event.age, year: event.year }
       return {
         id: scene.id,
         title: scene.title,
@@ -502,7 +583,7 @@ export function avatarJourney(idOrName, options = {}) {
         narration: scene.narration,
         stakes: scene.stakes,
         atmosphere: scene.atmosphere || null,
-        event: event ? { id: event.id, title: event.title, age: event.age, year: event.year, desc: event.desc } : null,
+        event: eventPayload,
         place: place ? { id: place.id, name: place.name, region: place.region, type: place.type } : null,
         choices: scene.choices.map((c, index) => ({
           index,
@@ -523,8 +604,8 @@ export function avatarJourney(idOrName, options = {}) {
     nameEn: character ? character.nameEn : '',
     faction: character ? character.faction : '',
     factionLabel: character ? character.factionLabel : '',
-    summary: character ? character.summary : '',
-    fate: character ? character.fate : '',
+    summary: character && showSummary ? character.summary : '',
+    fate: character && showFate ? character.fate : '',
     tagline: avatar.tagline,
     opening: avatar.opening,
     theme: avatar.theme,
@@ -543,8 +624,9 @@ export function avatarJourney(idOrName, options = {}) {
  * Deterministic and explanatory: it names how much of the path followed the
  * book, and which moments diverged.
  */
-export function judgeJourney(idOrName, choices = []) {
-  const journey = avatarJourney(idOrName, { maxTier: 3 })
+export function judgeJourney(idOrName, choices = [], options = {}) {
+  const maxTier = normalizeTier(options.maxTier)
+  const journey = avatarJourney(idOrName, { maxTier })
   if (!journey) return null
 
   const picked = new Map()
@@ -565,12 +647,15 @@ export function judgeJourney(idOrName, choices = []) {
     const choice = choiceIndex === null ? null : scene.choices[choiceIndex] || null
     const canonChoice = scene.choices.find((c) => c.canon) || null
     if (choice && choice.canon) canonCount++
+    // Above the ceiling, the canon choice's label/note narrates the outcome —
+    // show only whether the pick diverged, not what the book did.
+    const revealed = scene.tier <= maxTier
     decisions.push({
       sceneId: scene.id,
-      sceneTitle: scene.title,
+      sceneTitle: revealed ? scene.title : null,
       tier: scene.tier,
       chosen: choice ? { label: choice.label, toneLabel: choice.toneLabel, canon: choice.canon } : null,
-      canonChoice: canonChoice ? { label: canonChoice.label, note: canonChoice.note } : null,
+      canonChoice: revealed && canonChoice ? { label: canonChoice.label, note: canonChoice.note } : null,
       followedBook: Boolean(choice && choice.canon),
     })
   }
@@ -617,29 +702,45 @@ export function judgeJourney(idOrName, choices = []) {
  */
 export function bundle(options = {}) {
   const maxTier = normalizeTier(options.maxTier)
+  // Reading-order coverage, shared with journeys(): a work the reader has not
+  // reached yet hides its summary and its plot beats.
+  const covered = maxTier >= 3
+    ? ['hobbit-book', 'lotr-book', 'silmarillion']
+    : maxTier === 2 ? ['hobbit-book', 'lotr-book'] : ['hobbit-book']
+  const workCard = (w) => {
+    const locked = !covered.includes(w.id)
+    const base = {
+      id: w.id, kind: w.kind, title: w.title, titleEn: w.titleEn, year: w.year,
+      author: w.author, byline: w.byline, canon: w.canon, media: w.media,
+      tone: w.tone, readingHours: w.readingHours,
+    }
+    return locked ? { ...base, locked: true, lockedFields: ['summary'] } : { ...base, summary: w.summary }
+  }
   return {
-    works: WORKS,
+    works: WORKS.map(workCard),
     factions: FACTIONS,
     characters: maskList('character', CHARACTERS.map(toCard), maxTier),
     events: maskList('event', EVENTS.map((e) => ({ ...e })), maxTier),
     maxTier,
     paths: PATHS,
-    differences: DIFFERENCES,
+    // Differences narrate how the adaptations end scenes (d7 Denethor), so
+    // they are tier-2 content: hidden for readers who only know The Hobbit.
+    differences: maxTier >= 2 ? DIFFERENCES : [],
     relationTypes: RELATION_TYPES,
-    places: PLACES.map((p) => ({
+    places: maskList('place', PLACES.map((p) => ({
       id: p.id, name: p.name, nameEn: p.nameEn, region: p.region, type: p.type,
       canon: p.canon, summary: p.summary,
-    })),
-    artifacts: ARTIFACTS.map((a) => ({
+    })), maxTier),
+    artifacts: maskList('artifact', ARTIFACTS.map((a) => ({
       id: a.id, name: a.name, nameEn: a.nameEn, type: a.type, canon: a.canon, summary: a.summary,
-    })),
-    glossary: GLOSSARY.map((g) => ({
+    })), maxTier),
+    glossary: maskList('glossary', GLOSSARY.map((g) => ({
       id: g.id, term: g.term, termEn: g.termEn, category: g.category, definition: g.definition,
-    })),
-    quotes: QUOTES,
-    plot: plot(),
-    journeys: journeys(),
-    avatars: avatarList(),
+    })), maxTier),
+    quotes: maskList('quote', QUOTES, maxTier),
+    plot: plot({ maxTier }),
+    journeys: journeys({ maxTier }),
+    avatars: avatarList({ maxTier }),
     counts: counts(),
     generatedAt: new Date().toISOString(),
   }

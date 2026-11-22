@@ -1,11 +1,31 @@
 # DSH 市场发布脚本
+> **更正（2026-11-22）**：npm 发布**不是**市场准入前提。
+> 实测：三体宇宙没有 npm 包（registry 返回 404），但有 `market-entry.yml` 并走 GitHub 直装。
+> 市场缓存中 5631/11744 条无 npm 字段，4428 条用 `github:` 安装命令。
+> 因此按三体的 YAML 路径提交即可；npm 只是可选补充渠道。
+
 
 > 在 **你完成 npm 登录之后**执行本脚本。
 > 本脚本只做发布，不做任何仓库或代码改动。
 
 ---
 
-## 第 0 步：登录（需要你本人执行）
+## 路径 A（推荐，与三体一致）：GitHub 直装 — 无需 npm
+
+仓库已有 `market-entry.yml` 和 `assets/icon-180.png`，直接按三体的方式提交到
+`awesome-dsh-plugin` 主仓库即可。安装命令由市场生成：
+
+```
+dsh plugin --profile web add github:naturalth2012/middle-earth-atlas
+```
+
+---
+
+## 路径 B（可选）：额外发布到 npm
+
+只有当你希望多一个 npm 分发渠道时才需要。以下是原第 0 步：
+
+### 登录（需要你本人执行）
 
 ```powershell
 npm login --registry=https://registry.npmjs.org

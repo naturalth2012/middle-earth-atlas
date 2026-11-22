@@ -115,7 +115,7 @@ npm publish --registry=https://registry.npmjs.org --access public
 
 | 项目 | 状态 |
 |---|---|
-| 本地插件 | ✅ 已安装并验证（14 条路由全通，6 个工具可用，1557 项自检通过） |
+| 本地插件 | ✅ 已安装并验证（23 条路由全通，12 个工具可用，3947 项自检通过） |
 | 包规范 | ✅ 已改（包名、license、author、keywords、engines、repository） |
 | `private` 字段 | ✅ 已移除 |
 | LICENSE | ✅ MIT + 数据来源说明 |

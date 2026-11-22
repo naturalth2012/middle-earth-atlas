@@ -92,7 +92,7 @@ npm publish --registry=https://registry.npmjs.org --access public
 
 ## 五、技术层面的准备度
 
-- `npm pack --dry-run`：需重跑确认文件清单（文档里写的"16 个文件"已过时，现在是 35 项 files 声明）
+- `npm pack --dry-run`：需重跑确认文件清单（当前 39 项 files 声明，实际打包 39 个文件 / 约 214 KB）
 - 展示文案：DETAIL.md 里有完整中英文描述可直接用于市场条目
 - 图标：icon.svg 是自绘的戒指图形，无第三方素材
 - 能力声明：本插件无网络外发、无工作区文件写入。仅注册同源路由与工具，`capabilities` 可留空或填 `network`（保守起见）

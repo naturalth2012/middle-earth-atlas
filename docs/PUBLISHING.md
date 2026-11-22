@@ -7,7 +7,7 @@
 
 ## 一、推送到 GitHub
 
-本地尚未初始化仓库。以下命令在项目目录执行：
+仓库已初始化并推送完成。以下命令仅供重建参考：
 
 ```bash
 cd D:/DeepseekAPP/middle-earth-atlas
@@ -53,8 +53,8 @@ npm publish --registry=https://registry.npmjs.org --access public
 - **发布前自检**（可选但推荐）：
 
   ```bash
-  npm run check        # 1557 项数据/引擎校验 + 两个无浏览器渲染探针
-  npm pack --dry-run   # 确认打包内容只含预期的 16 个文件
+  npm run check        # 3945 项数据/引擎校验 + 三个无浏览器渲染探针
+  npm pack --dry-run   # 确认打包内容只含预期的 35 项文件声明
   ```
 
 - 如果你的 npm 账号与 GitHub 用户名不同，需要同步改 `package.json` 里的 `name`、`author`、`repository`。

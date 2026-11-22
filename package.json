@@ -1,7 +1,7 @@
 {
   "name": "@naturalth2012/middle-earth-atlas",
   "version": "1.0.0",
-  "description": "A canon-aware atlas of The Lord of the Rings and The Silmarillion: 68 characters, 236 relationships, an interactive graph with quantitative analysis, a 46-event timeline, 33 places, 14 artifacts, 40 quotes, 7 thematic dialectics, book-vs-screen differences, reading-progress and character-journey views, and 14 playable avatar journeys — in a side panel and through twelve agent tools.",
+  "description": "中土与精灵宝钻全景：68 位人物与 236 条关系图谱、46 个纪元事件、33 个地点、14 件宝物、剧情脉络、术语名句、改编差异与 7 组主题辩证；可运行的力导向图谱与中心性分析、阅读进度视图，以及 17 位可扮演角色的剧情旅程（含剧透分级与进度存档）。侧边栏面板与 12 个对话工具共用同一套数据，全部视图可按剧透层级遮蔽。",
   "type": "module",
   "license": "MIT",
   "author": "naturalth2012",
@@ -84,7 +84,9 @@
     "docs/PLAN-CONTENT-AND-PROGRESS.md",
     "docs/PLAN-READING-PROGRESS.md",
     "docs/DIAGNOSIS-IN-PROGRESS.md",
-    "docs/ANALYSIS-READING-PROGRESS.md"
+    "docs/ANALYSIS-READING-PROGRESS.md",
+    "market-entry.yml",
+    "assets/icon-180.png"
   ],
   "dsh": {
     "bundle": {

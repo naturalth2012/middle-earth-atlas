@@ -1,7 +1,7 @@
 {
   "name": "@naturalth2012/middle-earth-atlas",
   "version": "1.0.0",
-  "description": "A canon-aware atlas of The Lord of the Rings: 56 characters, 205 relationships, an interactive graph with quantitative network analysis, a 33-event timeline, 27 places, 14 artifacts, 40 quotes, 7 thematic dialectics, book-vs-screen differences, and 14 playable avatar journeys with a spoiler-aware reading gate — in a side panel and through ten agent tools.",
+  "description": "A canon-aware atlas of The Lord of the Rings and The Silmarillion: 68 characters, 236 relationships, an interactive graph with quantitative analysis, a 46-event timeline, 33 places, 14 artifacts, 40 quotes, 7 thematic dialectics, book-vs-screen differences, reading-progress and character-journey views, and 14 playable avatar journeys — in a side panel and through twelve agent tools.",
   "type": "module",
   "license": "MIT",
   "author": "naturalth2012",
@@ -46,7 +46,8 @@
     "./validate-source": "./validate-source.js",
     "./spoiler": "./spoiler.js",
     "./themes": "./themes.js",
-    "./analysis": "./analysis.js"
+    "./analysis": "./analysis.js",
+    "./progress": "./progress.js"
   },
   "files": [
     "index.js",
@@ -78,7 +79,12 @@
     "themes.js",
     "analysis.js",
     "docs/PLAN-SPOILER.md",
-    "docs/ANALYSIS-THREE-BODY.md"
+    "docs/ANALYSIS-THREE-BODY.md",
+    "progress.js",
+    "docs/PLAN-CONTENT-AND-PROGRESS.md",
+    "docs/PLAN-READING-PROGRESS.md",
+    "docs/DIAGNOSIS-IN-PROGRESS.md",
+    "docs/ANALYSIS-READING-PROGRESS.md"
   ],
   "dsh": {
     "bundle": {

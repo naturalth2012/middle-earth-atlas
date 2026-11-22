@@ -13,6 +13,29 @@
 window.__ModuleLoader__.load({
   id: '@naturalth2012/middle-earth-atlas',
   factory(require) {
+    // Report uncaught client errors to the Host's diagnostic route, so a blank
+    // panel can be diagnosed without access to the browser console.
+    const __MEA_REPORT_ERROR__ = (where, error) => {
+      try {
+        const message = error && error.message ? error.message : String(error)
+        const stack = error && error.stack ? error.stack : ''
+        window.fetch(
+          '/plugins/middle-earth-atlas/client-error/report?context='
+          + encodeURIComponent(where)
+          + '&message=' + encodeURIComponent(message)
+          + '&stack=' + encodeURIComponent(stack.slice(0, 1200)),
+        ).catch(() => {})
+      } catch { /* reporting must never throw */ }
+    }
+    if (typeof window.addEventListener === 'function') {
+      window.addEventListener('error', (event) => {
+        __MEA_REPORT_ERROR__('window.onerror', event && event.error ? event.error : event.message)
+      })
+      window.addEventListener('unhandledrejection', (event) => {
+        __MEA_REPORT_ERROR__('unhandledrejection', event && event.reason)
+      })
+    }
+
     const React = require('react')
     const h = React.createElement
 
@@ -32,6 +55,8 @@ window.__ModuleLoader__.load({
     const AVATAR_JUDGE_PATH = BASE + '/avatar-judge'
     const THEMES_PATH = BASE + '/themes'
     const ANALYSIS_PATH = BASE + '/analysis'
+    const PROGRESS_PATH = BASE + '/progress'
+    const JOURNEY_PATH = BASE + '/character-journey'
     /* --- avatar-tab:begin (generated from avatar-tab.js — do not edit here) --- */
     const buildAvatarTab = ({ h, React, t, paths, storage }) => {
   const { AVATARS_PATH, AVATAR_PATH, AVATAR_JUDGE_PATH } = paths
@@ -519,6 +544,7 @@ window.__ModuleLoader__.load({
       tabAvatar: '化身之旅',
       tabThemes: '主题辩证',
       tabAnalysis: '网络分析',
+      tabProgress: '阅读进度',
       // avatar journey
       avatarTitle: '化身之旅 · 走进故事里',
       avatarIntro: '选一个角色，回到他或她真正面对抉择的那一刻。你会看到自己会怎么选，也会看到托尔金实际写了什么——这正是原著最难被替代的部分。',
@@ -544,6 +570,15 @@ window.__ModuleLoader__.load({
       avatarScore: '与原著的一致程度',
       avatarChoices: '这一幕的选项',
       atmoOpen: '细看这一幕',
+      progressHint: '按你的剧透范围，看看每一步会遇到谁。进度由顶部的剧透范围控制。',
+      progressCast: '你会遇到',
+      progressEvents: '关键事件',
+      progressLocked: '尚未读到',
+      progressJourney: '故事线',
+      progressJourneyNone: '暂无可显示的节点',
+      progressFocus: '主角',
+      progressNamed: '提及',
+      progressPresent: '在场',
       spoilerLabel: '剧透范围',
       spoiler1: '读完《霍比特人》',
       spoiler2: '读完《魔戒》',
@@ -664,6 +699,7 @@ window.__ModuleLoader__.load({
       tabAvatar: 'Play as',
       tabThemes: 'Themes',
       tabAnalysis: 'Network',
+      tabProgress: 'Reading',
       avatarTitle: 'Play as a character',
       avatarIntro: 'Pick a character and return to the moment they actually faced a choice. You will see what you would do — and what Tolkien actually wrote. That gap is the point.',
       avatarSpoiler: 'Spoiler range',
@@ -688,6 +724,15 @@ window.__ModuleLoader__.load({
       avatarScore: 'How closely you followed the book',
       avatarChoices: 'Choices for this scene',
       atmoOpen: 'Look closer',
+      progressHint: 'See who you meet at each step. Driven by the spoiler range above.',
+      progressCast: 'You will meet',
+      progressEvents: 'Key events',
+      progressLocked: 'Not read yet',
+      progressJourney: 'Storyline',
+      progressJourneyNone: 'No visible scenes',
+      progressFocus: 'Driving',
+      progressNamed: 'Named',
+      progressPresent: 'Present',
       spoilerLabel: 'Spoiler range',
       spoiler1: 'Finished The Hobbit',
       spoiler2: 'Finished LOTR',
@@ -1133,8 +1178,16 @@ window.__ModuleLoader__.load({
       }
 
       // Character dossier.
-      const relations = d.relations.length
-        ? d.relations.map((r) => h('div', {
+      // Character dossier. The spoiler gate may remove any of these lists,
+      // so every one is normalised to an array before use.
+      const relationsList = Array.isArray(d.relations) ? d.relations : []
+      const worksList = Array.isArray(d.works) ? d.works : []
+      const placesList = Array.isArray(d.places) ? d.places : []
+      const artifactsList = Array.isArray(d.artifacts) ? d.artifacts : []
+      const quotesList = Array.isArray(d.quotes) ? d.quotes : []
+
+      const relationCards = relationsList.length
+        ? relationsList.map((r) => h('div', {
           key: r.to + r.type,
           className: 'mea-relitem',
           style: { cursor: 'pointer' },
@@ -1144,45 +1197,46 @@ window.__ModuleLoader__.load({
           h('div', null, h('b', null, r.name), h('small', null, r.label))))
         : [h('p', { key: 'none', className: 'mea-p' }, t('noRelations'))]
 
-      const works = d.works.length
-        ? d.works.map((w) => h('div', { key: w.id, className: 'mea-workitem' },
+      const workCards = worksList.length
+        ? worksList.map((w) => h('div', { key: w.id, className: 'mea-workitem' },
           h('div', null, h('b', null, w.title), h('small', null, w.role + ' · ' + w.canon))))
         : [h('p', { key: 'none', className: 'mea-p' }, t('noWorks'))]
 
-      const places = d.places && d.places.length
+      const places = placesList.length
         ? h('div', { className: 'mea-section' },
           h('h4', null, t('placesOf')),
-          ...d.places.map((p) => h('div', {
-            key: p.id,
-            className: 'mea-miniitem',
+          ...placesList.map((p) => h('div', {
+            key: p.id, className: 'mea-miniitem',
             onClick: () => onOpen('place', p.id),
-          }, h('div', null, h('b', null, p.name), h('small', null, p.type + ' · ' + p.summary)))))
+          }, h('div', null, h('b', null, p.name),
+            h('small', null, p.type + ' · ' + p.summary)))))
         : null
 
-      const artifacts = d.artifacts && d.artifacts.length
+      const artifacts = artifactsList.length
         ? h('div', { className: 'mea-section' },
           h('h4', null, t('artifactsOf')),
-          ...d.artifacts.map((a) => h('div', {
-            key: a.id,
-            className: 'mea-miniitem',
+          ...artifactsList.map((a) => h('div', {
+            key: a.id, className: 'mea-miniitem',
             onClick: () => onOpen('artifact', a.id),
-          }, h('div', null, h('b', null, a.name), h('small', null, a.type + ' · ' + a.summary)))))
+          }, h('div', null, h('b', null, a.name),
+            h('small', null, a.type + ' · ' + a.summary)))))
         : null
 
-      const quotes = d.quotes && d.quotes.length
+      const quotes = quotesList.length
         ? h('div', { className: 'mea-section' },
           h('h4', null, t('quotesOf')),
-          ...d.quotes.map((q) => h('div', { key: q.id, className: 'mea-quote' },
+          ...quotesList.map((q) => h('div', { key: q.id, className: 'mea-quote' },
             '“' + q.text + '”', h('cite', null, q.context))))
         : null
 
-      const appearances = d.appearances.length
+      const appearances = Array.isArray(d.appearances) ? d.appearances : []
+      const appearancesNode = appearances.length
         ? h('div', { className: 'mea-section' },
           h('h4', null, t('appearances')),
-          ...d.appearances.map((e) => h('div', { key: e.id, className: 'mea-eventitem' },
-            h('div', null, h('b', null, e.title), h('small', null, e.age + ' · ' + e.year)))))
+          ...appearances.map((e) => h('div', { key: e.id, className: 'mea-eventitem' },
+            h('div', null, h('b', null, e.title),
+              h('small', null, e.age + ' · ' + e.year)))))
         : null
-
       const alias = d.alias && d.alias.length ? ' · 别名：' + d.alias.join('、') : ''
 
       return h(React.Fragment, null,
@@ -1199,12 +1253,12 @@ window.__ModuleLoader__.load({
           d.details ? h('p', { className: 'mea-p', style: { marginTop: 8 } }, d.details) : null,
           d.fate ? h('p', { className: 'mea-p', style: { marginTop: 8 } },
             h('b', null, t('fate') + '：'), d.fate) : null),
-        h('div', { className: 'mea-section' }, h('h4', null, t('relations')), ...relations),
-        h('div', { className: 'mea-section' }, h('h4', null, t('works')), ...works),
+        h('div', { className: 'mea-section' }, h('h4', null, t('relations')), ...relationCards),
+        h('div', { className: 'mea-section' }, h('h4', null, t('works')), ...workCards),
         places,
         artifacts,
         quotes,
-        appearances)
+        appearancesNode)
     }
 
     /* ------------------------------------------------------------------ *
@@ -2063,6 +2117,78 @@ window.__ModuleLoader__.load({
             h('span', { className: 'mea-rank-val' }, r.bridgesTo.map((f) => f.name).join('、'))))))
     }
 
+    /* ------------------------------------------------------------------ *
+     * Reading progress: derived from the same spoiler tier as the selector.
+     * ------------------------------------------------------------------ */
+    const ProgressTab = ({ t, spoilerTier, open }) => {
+      const [data, setData] = React.useState(null)
+      const [failed, setFailed] = React.useState(false)
+      const [journey, setJourney] = React.useState(null)
+
+      React.useEffect(() => {
+        let alive = true
+        setData(null); setFailed(false)
+        getJSON(withTier(PROGRESS_PATH, spoilerTier))
+          .then((r) => { if (alive) setData(r) })
+          .catch(() => { if (alive) setFailed(true) })
+        return () => { alive = false }
+      }, [spoilerTier])
+
+      // All hooks are above the returns, so the call count never changes.
+      if (failed) return h('div', { className: 'mea-empty' }, t('errorTitle'))
+      if (!data) {
+        return h('div', { className: 'mea-loading', style: { height: 'auto', paddingTop: 40 } },
+          h('div', { className: 'mea-spin', 'aria-hidden': 'true' }, '💍'), h('div', null, t('loading')))
+      }
+
+      const roleLabel = (role) => role === 'focus' ? t('progressFocus')
+        : role === 'named' ? t('progressNamed') : t('progressPresent')
+
+      // Build the journey panel first so the return stays shallow.
+      let journeyPanel = null
+      if (journey) {
+        const rows = journey.beats.length === 0
+          ? h('p', { className: 'mea-p' }, t('progressJourneyNone'))
+          : h('div', null, ...journey.beats.map((b) => h('div', {
+            key: b.id, className: 'mea-rank-row',
+          },
+            h('span', { className: 'mea-rank-no' }, String(b.order)),
+            h('span', { className: 'mea-rank-name' }, b.locked ? '🔒 ' + b.age : roleLabel(b.role) + ' · ' + b.age),
+            h('span', { className: 'mea-rank-val' }, b.locked ? '' : b.title))))
+        journeyPanel = h('div', { className: 'mea-theme' },
+          h('h3', null, t('progressJourney') + ' · ' + journey.name),
+          h('p', { className: 'mea-kicker' },
+            '可见 ' + journey.visible + ' / ' + journey.total + '（隐藏 ' + journey.locked + '）'),
+          rows)
+      }
+
+      const workCards = data.works.map((w) => {
+        const castButtons = w.locked ? null : h(React.Fragment, null,
+          h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 } },
+            ...w.cast.map((actor) => h('button', {
+              key: actor.id,
+              className: 'mea-chip',
+              onClick: () => {
+                getJSON(withTier(JOURNEY_PATH + '?id=' + encodeURIComponent(actor.id), spoilerTier))
+                  .then(setJourney).catch(() => setJourney(null))
+              },
+            }, actor.name))),
+            ...w.eventTitles.map((title, i) => h('span', { key: i, className: 'mea-tag' }, title)))
+        return h('div', { key: w.work, className: 'mea-theme' },
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } },
+            h('h3', { style: { margin: 0 } }, w.index + '. ' + w.title),
+            h('span', { className: 'mea-badge' }, w.locked ? t('progressLocked') : w.canon)),
+          h('div', { className: 'mea-kicker', style: { marginTop: 6 } },
+            t('progressCast') + ' · ' + w.castCount + ' / ' + t('progressEvents') + ' ' + w.eventCount),
+          castButtons)
+      })
+
+      return h(React.Fragment, null,
+        h('p', { className: 'mea-kicker' }, t('progressHint')),
+        ...workCards,
+        journeyPanel)
+    }
+
     const AtlasPage = ({ t, onBack }) => {
       const [data, setData] = React.useState(null)
       const [error, setError] = React.useState(false)
@@ -2115,6 +2241,7 @@ window.__ModuleLoader__.load({
         ['avatar', '🎭 ' + t('tabAvatar')],
         ['themes', '⚖️ ' + t('tabThemes')],
         ['analysis', '📊 ' + t('tabAnalysis')],
+        ['progress', '📖 ' + t('tabProgress')],
         ['characters', '👤 ' + t('tabCharacters')],
         ['graph', '🕸️ ' + t('tabGraph')],
         ['timeline', '📜 ' + t('tabTimeline')],
@@ -2162,6 +2289,7 @@ window.__ModuleLoader__.load({
           tab === 'avatar' && h(AvatarTabView, { data, t }),
           tab === 'themes' && h(ThemesTab, { t, spoilerTier }),
           tab === 'analysis' && h(AnalysisTab, { t }),
+          tab === 'progress' && h(ProgressTab, { t, spoilerTier, open }),
           tab === 'characters' && h(CharactersTab, { data, t, open, spoilerTier }),
           tab === 'graph' && h(GraphTab, { data, t, open, spoilerTier }),
           tab === 'timeline' && h(TimelineTab, { data, t }),

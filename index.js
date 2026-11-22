@@ -18,6 +18,7 @@ import {
 import { TIER_LABELS, MAX_TIER, RECORD_TIER, maskList } from './spoiler.js'
 import { THEMES } from './themes.js'
 import { networkSummary } from './analysis.js'
+import { readingProgress, characterJourney, journeyText } from './progress.js'
 
 const BASE = '/plugins/middle-earth-atlas'
 export const BUNDLE_PATH = BASE + '/bundle'
@@ -38,14 +39,27 @@ export const AVATARS_PATH = BASE + '/avatars'
 export const AVATAR_PATH = BASE + '/avatar'
 export const AVATAR_JUDGE_PATH = BASE + '/avatar-judge'
 export const SPOILER_PATH = BASE + '/spoiler-tiers'
+export const CLIENT_ERROR_PATH = BASE + '/client-error'
 export const THEMES_PATH = BASE + '/themes'
 export const ANALYSIS_PATH = BASE + '/analysis'
+export const PROGRESS_PATH = BASE + '/progress'
+export const JOURNEY_PATH = BASE + '/character-journey'
 
 const textOutput = {
   schema: { type: 'object', properties: { text: { type: 'string' } }, additionalProperties: true },
   render(args, value) {
     return [{ type: 'text', text: (value && value.text) || '没有结果。' }]
   },
+}
+
+
+/** In-memory ring of client-side errors, for diagnosis of blank panels. */
+const clientErrors = []
+function recordClientError(entry) {
+  try {
+    clientErrors.push({ at: Date.now(), ...entry })
+    if (clientErrors.length > 50) clientErrors.shift()
+  } catch { /* diagnostic data must never break a route */ }
 }
 
 function json(res, status, body) {
@@ -194,6 +208,56 @@ export function apply(ctx) {
         return { text: lines.join('\n') }
       },
     }, 'middle-earth-atlas: middle_earth_analysis tool')
+
+
+    register({
+      name: 'middle_earth_progress',
+      description:
+        'Show what characters a reader has met at a given point in the story. Groups works by '
+        + 'reading order and lists the cast of each, with whether it is still locked at the '
+        + 'reader spoiler level. Use it for "我读完霍比特人会认识谁".',
+      parameters: {
+        type: 'object',
+        properties: {
+          maxTier: { type: 'integer', description: 'Reading progress 1-3: 1 = after The Hobbit, 2 = after LOTR, 3 = everything.' },
+        },
+        additionalProperties: false,
+      },
+      output: textOutput,
+      async execute(args) {
+        const result = readingProgress(args && args.maxTier)
+        const lines = ['**阅读进度**（' + result.maxTier + ' 级）：', '']
+        for (const w of result.works) {
+          lines.push('- ' + (w.locked ? '🔒 ' : '') + w.title + '：' + w.castCount + ' 位角色，'
+            + w.eventCount + ' 个事件')
+          if (!w.locked) {
+            lines.push('  ' + w.cast.slice(0, 6).map((c) => c.name + '(' + c.role + ')').join('、'))
+          }
+        }
+        return { text: lines.join('\n') }
+      },
+    }, 'middle-earth-atlas: middle_earth_progress tool')
+
+    register({
+      name: 'middle_earth_journey',
+      description:
+        'Walk one character through the story in order: every event they appear in, tagged as '
+        + 'driving the scene, named in it, or merely present. Use it to answer "what does this '
+        + 'character actually live through" or to follow one thread across the trilogy.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Character name or id, e.g. 弗罗多 / frodo' },
+          maxTier: { type: 'integer', description: 'Spoiler ceiling 1-3; events above it are locked rather than described.' },
+        },
+        required: ['name'],
+        additionalProperties: false,
+      },
+      output: textOutput,
+      async execute(args) {
+        return { text: journeyText(characterJourney((args && args.name) || '', args && args.maxTier)) }
+      },
+    }, 'middle-earth-atlas: middle_earth_journey tool')
 
     register({
       name: 'middle_earth_search',
@@ -548,6 +612,38 @@ export function apply(ctx) {
     const register = (path, compute, label) =>
       webCtx.effect(() => webCtx.webServer.register({ kind: 'exact', path, handler: routeHandler(path, compute) }), label)
 
+    // Client diagnostic channel: the browser reports render errors here so a
+    // blank panel can be diagnosed without access to the browser console.
+    webCtx.effect(() => webCtx.webServer.register({
+      kind: 'exact',
+      path: CLIENT_ERROR_PATH,
+      handler: (req, res) => {
+        if (req.method === 'GET') {
+          json(res, 200, { errors: clientErrors })
+          return
+        }
+        json(res, 405, { error: 'method not allowed' })
+      },
+    }), 'middle-earth-atlas: client error route')
+
+    webCtx.effect(() => webCtx.webServer.register({
+      kind: 'exact',
+      path: CLIENT_ERROR_PATH + '/report',
+      handler: (req, res) => {
+        if (req.method === 'GET') {
+          const params = readQuery(req, CLIENT_ERROR_PATH + '/report')
+          recordClientError({
+            message: params.get('message') || '',
+            stack: (params.get('stack') || '').slice(0, 2000),
+            context: params.get('context') || 'window.onerror',
+          })
+          json(res, 200, { ok: true })
+          return
+        }
+        json(res, 405, { error: 'method not allowed' })
+      },
+    }), 'middle-earth-atlas: client error report route')
+
     register(BUNDLE_PATH, (p) => bundle({ maxTier: p.get('maxTier') }),
       'middle-earth-atlas: bundle route')
 
@@ -599,6 +695,14 @@ export function apply(ctx) {
 
     register(JOURNEYS_PATH, (p) => ({ journeys: journeys({ work: p.get('work') || undefined }) }),
       'middle-earth-atlas: journeys route')
+
+    register(PROGRESS_PATH, (p) => readingProgress(p.get('maxTier')),
+      'middle-earth-atlas: reading progress route')
+
+    register(JOURNEY_PATH, (p) => {
+      const journey = characterJourney(p.get('id') || p.get('q') || '', p.get('maxTier'))
+      return journey || { error: '没有找到这个角色' }
+    }, 'middle-earth-atlas: character journey route')
 
     register(THEMES_PATH, (p) => {
       const maxTier = Number(p.get('maxTier')) || MAX_TIER

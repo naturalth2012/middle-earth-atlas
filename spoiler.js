@@ -98,6 +98,8 @@ export const RECORD_TIER = {
   elendil: 3,    // 「最后同盟中战死」
   anarion: 3,    // 「在巴拉多围城期间战死」
   gil_galad: 3,  // 「与伊兰迪尔并肩对抗索伦并战死」
+  thingol: 3,      // 「死于多瑞亚斯」
+  finwe: 3,      // 「被米尔寇杀害」
   isildur: 3,    // 「最终因此丧命」
   deagol: 3,     // 「被斯米戈尔掐死夺戒」
   ar_pharazon: 3, // 「最终导致王国沉没」
